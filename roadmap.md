@@ -1,5 +1,7 @@
 # Al-Ahsan AI roadmap
 
+- [ ] Current request: integrate compatible gpt-engineer features — structured project files, edit/copy/ZIP workspace, refinement guidance, regression and signed-in checks (not Python CLI execution)
+
 - [x] Email sign-in was disabled on the remixed backend — enabled; test signup returns confirmation_sent_at (real inbox delivery pending manual check)
 - [x] Password reset (forgot link + /reset-password page) — pending manual email check
 - [x] Phase 4: stop/regenerate/copy/edit message; regenerate no longer double-saves the question (signed-in click test pending)
