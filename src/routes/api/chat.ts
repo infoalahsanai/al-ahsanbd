@@ -314,7 +314,7 @@ async function handleChat(request: Request): Promise<Response> {
             : "\n\nব্যবহারকারী সাম্প্রতিক তথ্য চেয়েছেন কিন্তু ওয়েব অনুসন্ধান এখন কাজ করেনি। তথ্য পুরোনো হতে পারে তা স্পষ্ট জানাবে, অনুমান করবে না।";
 
         }
-        if (/ওয়েবসাইট|website|ওয়েব সাইট|অ্যাপ|app|landing|পেজ বানা|html/i.test(lastUser)) stages.push("code");
+        if (needsCodeEngine(lastText, isSiteReq) || /ওয়েবসাইট|website|ওয়েব সাইট|অ্যাপ|app|landing|পেজ বানা|html/i.test(lastUser)) stages.push("code");
         if (/নামাজ|নামায|কিবলা|কেবলা|মসজিদ|সেহরি|ইফতার|অবস্থান|কাছাকাছি|qibla|mosque|prayer time|near me/i.test(lastUser)) {
           stages.unshift("geo");
           system += `\n\nব্যবহারকারী অবস্থানভিত্তিক তথ্য চেয়েছেন। নির্দেশ: অ্যাপের "নামাজ ও কিবলা" পাতা (/salat) খুললে জিপিএস দিয়ে তাঁর সঠিক নামাজের সময়, সেহরি-ইফতার, কিবলার দিক ও নিকটস্থ মসজিদ দেখা যাবে — এটি বিনয়ের সাথে জানাবে। অবস্থান না জেনে নির্দিষ্ট সময় বা দূরত্ব অনুমান করবে না।`;

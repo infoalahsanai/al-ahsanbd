@@ -505,7 +505,8 @@ function ChatPage() {
     const imgPayload: Partial<Pick<Msg, "images" | "image">> = imgs[0] ? { images: imgs, image: imgs[0] } : {};
     const history: Msg[] = [...cur.filter((m) => !m.error && m.content.trim()), { role: "user", content: text, ...imgPayload }];
     // ভার্সন সিস্টেম: এই চ্যাটে আগের ওয়েবসাইট থাকলে সেটিকেই ভিত্তি ধরে শুধু চাওয়া পরিবর্তন
-    const siteMsgs = cur.filter((m) => m.role === "assistant" && /```html/i.test(m.content));
+    const projectRequest = needsCodeEngine(typed, /ওয়েবসাইট|ওয়েব সাইট|website|landing|html|পেজ বানা|অ্যাপ বানা/i.test(typed));
+    const siteMsgs = projectRequest ? [] : cur.filter((m) => m.role === "assistant" && /```html/i.test(m.content));
     const prevSite = siteMsgs.length ? [...siteMsgs[siteMsgs.length - 1]!.content.matchAll(/```html\s*\n([\s\S]*?)```/gi)].map((x) => x[1]).join("\n") : "";
     const siteVersion = siteMsgs.length + 1;
     setMsgs([...cur, { role: "user", content: text, ...imgPayload }, { role: "assistant", content: "" }]);
@@ -574,7 +575,7 @@ function ChatPage() {
     // ত্রুটি হলে কিছুই ডাটাবেজে সেভ হবে না — শুধু পর্দায় সতর্কবার্তা
     if (full && !failed) {
       // অসম্পূর্ণ কোড ব্লক বন্ধ করা, যাতে লাইভ লিংক কোডের ভেতরে না পড়ে
-      if (((full.match(/```/g) || []).length) % 2 === 1) {
+      if (!projectRequest && ((full.match(/```/g) || []).length) % 2 === 1) {
         full += "\n```";
         setMsgs((m) => [...m.slice(0, -1), { role: "assistant", content: full }]);
       }
@@ -587,7 +588,7 @@ function ChatPage() {
         if (css) htmlCode = /<\/head>/i.test(htmlCode) ? htmlCode.replace(/<\/head>/i, `<style>\n${css}\n</style>\n</head>`) : `<style>${css}</style>` + htmlCode;
         if (js) htmlCode = /<\/body>/i.test(htmlCode) ? htmlCode.replace(/<\/body>(?![\s\S]*<\/body>)/i, `<script>\n${js}\n</script>\n</body>`) : htmlCode + `<script>${js}</script>`;
       } else htmlCode = undefined;
-      if (htmlCode && /<html/i.test(htmlCode)) {
+      if (!projectRequest && htmlCode && /<html/i.test(htmlCode)) {
         pushStage("build");
         try {
           const { data: s2 } = await supabase.auth.getSession();

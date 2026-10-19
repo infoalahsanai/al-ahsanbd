@@ -41,5 +41,10 @@ export async function projectZip(files: ProjectFile[]): Promise<Blob> {
 }
 
 export function refinementMessage(files: ProjectFile[], request: string): string {
-  return `এই বিদ্যমান প্রজেক্টে শুধু অনুরোধের পরিবর্তন করুন; অপ্রাসঙ্গিক অংশ অক্ষত রাখুন। পরিবর্তিত প্রতিটি ফাইল সম্পূর্ণ লিখুন, ফাইলের পাথের পর কোড ব্লক দিন। কোনো পরীক্ষা চালানো না হলে যাচাইকৃত বলবেন না।\nঅনুরোধ: ${request.trim()}\n\nবিদ্যমান ফাইলগুলো:\n${files.map((file) => `${file.path}\n\`\`\`\`\`\`\`\`\`\`\`\`${file.language}\n${file.content}\n\`\`\`\`\`\`\`\`\`\`\`\``).join("\n\n")}`;
+  const sources = files.map((file) => {
+    const longest = Math.max(2, ...(file.content.match(/`+/g) ?? []).map((run) => run.length));
+    const fence = "`".repeat(longest + 1);
+    return `${file.path}\n${fence}${file.language}\n${file.content}\n${fence}`;
+  }).join("\n\n");
+  return `এই বিদ্যমান প্রজেক্টে শুধু অনুরোধের পরিবর্তন করুন; অপ্রাসঙ্গিক অংশ অক্ষত রাখুন। পরিবর্তিত প্রতিটি ফাইল সম্পূর্ণ লিখুন, ফাইলের পাথের পর কোড ব্লক দিন। কোনো পরীক্ষা চালানো না হলে যাচাইকৃত বলবেন না।\nঅনুরোধ: ${request.trim()}\n\nবিদ্যমান ফাইলগুলো:\n${sources}`;
 }
