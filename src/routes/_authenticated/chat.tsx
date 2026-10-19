@@ -7,6 +7,8 @@ import remarkGfm from "remark-gfm";
 import { Mic, MicOff, Send, Plus, Trash2, Volume2, VolumeX, LogOut, Shield, Menu, Square, Copy, Check, Search, Printer, Download, Maximize2, Code2, MonitorPlay, ExternalLink, ImagePlus, Compass, Paperclip, Bookmark as BookmarkIcon, BookmarkCheck, Share2, Globe, Sparkles, Brain, CheckCircle2, Loader2, Moon, Sun, Play, Pencil, Pin, PinOff, Archive, ArchiveRestore, RotateCcw } from "lucide-react";
 
 import { CodePreviewDialog } from "@/components/chat/CodePreviewDialog";
+import { ProjectWorkspace } from "@/components/chat/ProjectWorkspace";
+import { needsCodeEngine } from "@/lib/gpt-engineer";
 
 import { extractDocText, loadBookmarks, saveBookmarks, downloadShareCard, type Bookmark } from "@/lib/extras";
 import { ChartBlock } from "@/components/ChartBlock";
@@ -803,6 +805,7 @@ function ChatPage() {
                         return (
                         <>
                           <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={urlT} components={streamingNow ? mdStreaming : mdDone}>{body}</ReactMarkdown>
+                          {!streamingNow && !m.error && <ProjectWorkspace content={m.content} onRefine={(message) => setInput(message)} />}
                           <div className="mt-1 flex flex-wrap gap-3 text-muted-foreground">
                             <button onClick={() => copy(body, i)} className="flex items-center gap-1 text-xs hover:text-primary" aria-label="কপি">{copied === i ? <Check size={15} /> : <Copy size={15} />}{copied === i ? "কপি হয়েছে" : "কপি"}</button>
                             <button onClick={() => { if (speaking === i) { window.speechSynthesis?.cancel(); setSpeaking(null); } else { speak(body); setSpeaking(i); } }} className="flex items-center gap-1 text-xs hover:text-primary" aria-label="শুনুন">{speaking === i ? <><Square size={14} /> থামান</> : <><Volume2 size={15} /> শুনুন</>}</button>
