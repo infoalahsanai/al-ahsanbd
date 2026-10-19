@@ -15,6 +15,8 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Al Ahsan AI-তে লগইন বা অ্যাকাউন্ট তৈরি করুন।" },
       { property: "og:title", content: "লগইন — Al Ahsan AI" },
       { property: "og:description", content: "Al Ahsan AI-তে লগইন বা অ্যাকাউন্ট তৈরি করুন।" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuthPage,
