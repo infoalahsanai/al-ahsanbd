@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { extractProjectFiles, projectZip, refinementMessage, safeProjectPath } from "./project-files";
 import { needsCodeEngine } from "./gpt-engineer";
 
