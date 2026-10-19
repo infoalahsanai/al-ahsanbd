@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { DEFAULT_MODELS, LOVABLE_MODELS, type Provider } from "@/lib/models";
+import { GPT_ENGINEER_PROMPT, needsCodeEngine } from "@/lib/gpt-engineer";
 
 const Body = z.object({
   messages: z
@@ -268,6 +269,7 @@ async function handleChat(request: Request): Promise<Response> {
         if (s?.admin_note?.trim()) {
           system += `\n\n=== অ্যাডমিনের নির্দেশনা (সর্বোচ্চ অগ্রাধিকার — অবশ্যই মেনে চলবে) ===\n${s.admin_note.trim()}`;
         }
+        if (needsCodeEngine(lastText, isSiteReq)) system += "\n\n" + GPT_ENGINEER_PROMPT;
         system += INTEGRITY;
 
         // Current Bangladesh date/time so the AI always knows "today"
