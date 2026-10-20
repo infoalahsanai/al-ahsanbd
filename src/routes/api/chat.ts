@@ -24,7 +24,17 @@ const Body = z.object({
     .min(1)
     .max(60),
   model: z.string().max(80).optional(),
+  mode: z.enum(["engineer"]).optional(),
 });
+
+const ENGINEER_PROMPT = `## ইঞ্জিনিয়ার মোড (সিনিয়র সফটওয়্যার ইঞ্জিনিয়ারের কাজের ধারা — কঠোরভাবে মানবে)
+১. বোঝা: প্রথমে অনুরোধের আসল লক্ষ্য ১–২ লাইনে নিজের ভাষায় লিখবে। অস্পষ্ট বা ঝুঁকিপূর্ণ অনুমান থাকলে তা স্পষ্ট "অনুমান:" হিসেবে লিখবে।
+২. পরিকল্পনা: ফাইল-কাঠামো ও ধাপগুলো সংক্ষিপ্ত তালিকায় দেবে; সবচেয়ে সহজ কার্যকর সমাধান বেছে নেবে, অপ্রয়োজনীয় জটিলতা নয়।
+৩. বাস্তবায়ন: প্রতিটি ফাইল সম্পূর্ণ কোডসহ আলাদা কোড ব্লকে, ব্লকের আগে আপেক্ষিক ফাইল পাথ। "..." বা "বাকি আগের মতো" লিখবে না। ইনপুট যাচাই ও ত্রুটি-হ্যান্ডলিং রাখবে; গোপন কী কোডে বসাবে না।
+৪. নিজে যাচাই: উত্তর পাঠানোর আগে মনে মনে কোডটি পরীক্ষা করবে — ইমপোর্ট, নাম, টাইপ, এজ-কেস, সিনট্যাক্স। ভুল পেলে ঠিক করে তবেই দেবে। "যাচাই:" শিরোনামে কী কী পরীক্ষা করেছ সংক্ষেপে লিখবে।
+৫. চালানো ও টেস্ট: ইনস্টল/চালানো/টেস্টের সঠিক কমান্ড দেবে; সম্ভব হলে একটি টেস্ট ফাইল দেবে।
+৬. সততা: নিজে চালিয়ে দেখোনি বলে কখনো "পরীক্ষিত/নিশ্চিত কাজ করবে" দাবি করবে না; জানা সীমাবদ্ধতা স্পষ্ট লিখবে। জানা না থাকলে অনুমান করে তথ্য বানাবে না।
+৭. বিদ্যমান কোড দিলে শুধু চাওয়া অংশ বদলাবে, বাকি সব অক্ষত রাখবে, এবং কোথায় কী বদলেছে তা উল্লেখ করবে।`;
 
 const PERSONA = `## তোমার ব্যক্তিত্ব ও কঠোর নিয়ম (সবচেয়ে গুরুত্বপূর্ণ)
 - তুমি একজন অভিজ্ঞ সিনিয়র ফুল-স্ট্যাক ডেভেলপার, টেকনিক্যাল আর্কিটেক্ট ও শিক্ষক — বিচক্ষণ, ধৈর্যশীল, বিনয়ী ও সুনির্দিষ্ট।
@@ -207,7 +217,8 @@ async function handleChat(request: Request): Promise<Response> {
         // দ্রুত পথ: সাধারণ প্রশ্নে দ্রুততম মডেল (Google কী না থাকলেও বিল্ট-ইন দিয়ে)
         const googleNoKey = provider === "google" && !keys?.google_key?.trim() && !process.env["GOOGLE_API_KEY"];
         void googleNoKey;
-        const isQuick = !picked && !isSiteReq && lastText.length < 600 && !/কোড|code|প্রোগ্রাম|ফতোয়া|মাসআলা|অংক|গণিত/i.test(lastText);
+        const isEngineer = parsed.data.mode === "engineer";
+        const isQuick = !isEngineer && !picked && !isSiteReq && lastText.length < 600 && !/কোড|code|প্রোগ্রাম|ফতোয়া|মাসআলা|অংক|গণিত/i.test(lastText);
         let model = picked ?? (isQuick ? "google/gemini-3-flash-preview" : isSiteReq && /lite/i.test(baseModel)
           ? (provider === "google" ? "gemini-3-flash-preview" : provider === "lovable" ? "google/gemini-3-flash-preview" : baseModel)
           : baseModel);
@@ -224,7 +235,12 @@ async function handleChat(request: Request): Promise<Response> {
         }
         // নিজস্ব Google কী থাকলে সরাসরি Google (মাপা প্রথম টোকেন ~২.৮ সে.); বিল্ট-ইন পথ শুধু ব্যাকআপ
         const ownGoogle = keys?.google_key?.trim() || process.env["GOOGLE_API_KEY"];
-        if (ownGoogle && !picked && provider !== "openai") {
+        if (ownGoogle && isEngineer) {
+          // ইঞ্জিনিয়ার মোড: সবসময় ব্যবহারকারীর Google কী + Google-এর সবচেয়ে শক্তিশালী যুক্তির মডেল
+          url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+          key = ownGoogle;
+          model = "gemini-3.1-pro-preview";
+        } else if (ownGoogle && !picked && provider !== "openai") {
           url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
           key = ownGoogle;
           // সাধারণ প্রশ্নে flash-lite (মাপা প্রথম টোকেন ~০.৭–০.৯ সে.); কোড/ওয়েবসাইট/জটিল কাজে 3.8-flash
@@ -238,6 +254,7 @@ async function handleChat(request: Request): Promise<Response> {
 
         // Merge Prompts properly so BASE_PROMPT is NEVER lost
         let system = PERSONA + "\n\n" + BASE_PROMPT;
+        if (isEngineer) system += "\n\n" + ENGINEER_PROMPT;
         if (s?.system_prompt?.trim()) {
           system += `\n\n=== অতিরিক্ত সিস্টেম নির্দেশনা ===\n${s.system_prompt.trim()}`;
         }
@@ -342,6 +359,8 @@ async function handleChat(request: Request): Promise<Response> {
         const pool = (Array.isArray((keys as { key_pool?: unknown })?.key_pool) ? (keys as { key_pool: PoolKey[] }).key_pool : [])
           .filter((p) => p && p.active !== false && p.key?.trim());
         const attempts: { url: string; key: string; model: string; label: string }[] = [{ url, key, model, label: "primary" }];
+        // ইঞ্জিনিয়ার মোডে Pro মডেল ব্যর্থ হলে (যেমন ফ্রি কী) একই Google কী দিয়ে 3.8-flash-এ ফেরত
+        if (isEngineer && url.includes("generativelanguage")) attempts.push({ url, key, model: "gemini-3.8-flash", label: "engineer-fallback" });
         for (const p of pool) {
           if (p.provider === provider && p.key!.trim() !== key) attempts.push({ url, key: p.key!.trim(), model, label: p.name || provider });
         }
