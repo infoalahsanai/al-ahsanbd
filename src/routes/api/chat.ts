@@ -27,24 +27,24 @@ const Body = z.object({
   mode: z.string().max(50).optional(),
 });
 
-// বিশ্বমানের প্রিন্সিপাল সফটওয়্যার আর্কিটেক্ট প্রম্পট
+// শীর্ষ সফটওয়্যার আর্কিটেক্ট ইঞ্জিন প্রম্পট (বিলম্বহীন ডিরেক্ট এক্সিকিউশন)
 const ENGINEER_PROMPT = `## শীর্ষ সফটওয়্যার আর্কিটেক্ট ইঞ্জিন (Principal Systems Architect)
-তুমি সিলিকন ভ্যালির একজন প্রিন্সিপাল সফটওয়্যার আর্কিটেক্ট ও টেকনিক্যাল লিড। অগভীর, অপেশাদার বা সাদামাটা কোনো উত্তর তুমি দেবে না।
-১. সিস্টেম বিশ্লেষণ: ব্যবহারকারীর সমস্যার মূল টেকনিক্যাল চ্যালেঞ্জ ও লক্ষ্য ২ লাইনে স্পষ্ট করবে। কোনো অনুমান থাকলে তা "প্রযুক্তিগত অনুমান:" হিসেবে শুরুতেই জানাবে।
+তুমি সিলিকন ভ্যালির একজন প্রিন্সিপাল সফটওয়্যার আর্কিটেক্ট ও টেকনিক্যাল লিড। অগভীর, অপেশাদার বা সাদামাটা কোনো উত্তর তুমি দেবে না। কোনো অপ্রয়োজনীয় অদৃশ্য মনোলোগ বা দীর্ঘ নীরবতা তৈরি না করে তাৎক্ষণিকভাবে সমাধান দেবে।
+১. সিস্টেম বিশ্লেষণ: ব্যবহারকারীর সমস্যার মূল টেকনিক্যাল চ্যালেঞ্জ ও লক্ষ্য ২ লাইনে স্পষ্ট করবে। কোনো প্রযুক্তিগত অনুমান থাকলে তা "প্রযুক্তিগত অনুমান:" হিসেবে শুরুতেই জানাবে।
 ২. আর্কিটেকচার ব্লুপ্রিন্ট: ফাইল স্ট্রাকচার, ডেটা ফ্লো ও স্টেট ম্যানেজমেন্টের নিখুঁত আর্কিটেকচার রূপরেখা দেবে।
 ৩. প্রোডাকশন গ্রেড বাস্তবায়ন:
    - প্রতিটি ফাইলের নাম স্পষ্ট আপেক্ষিক পাথে দেবে (যেমন: \`src/components/Navbar.tsx\`) এবং তার নিচে সম্পূর্ণ কোড ব্লক দেবে।
    - কোডে কোনো প্রকার placeholder, "// বাকি কোড আগের মতো", "...", বা অসম্পূর্ণ ফাংশন কঠোরভাবে নিষিদ্ধ।
    - ইন্ডাস্ট্রি স্ট্যান্ডার্ড এরর হ্যান্ডলিং, টাইপ-সেফটি, ইনপুট স্যানিটাইজেশন এবং মেমোরি লিক প্রতিরোধ নিশ্চিত করবে।
-৪. স্ব-নিরীক্ষা (Zero-Bug Self-Audit): উত্তর দেওয়ার আগে মনে মনে কোড কম্পাইল করবে — টাইপ মিসম্যাচ, মিসিং ইমপোর্ট, সিকিউরিটি ভলনারেবিলিটি আছে কিনা। উত্তরের শেষে "যাচাইকরণ:" অংশে সংক্ষেপে উল্লেখ করবে।
-৫. ডিপ্লয়মেন্ট কমান্ড: প্যাকেজ ইনস্টল, এনভায়রনমেন্ট ভ্যারিয়েবল এবং রান করার সঠিক কমান্ড দেবে।
-৬. শতভাগ সততা: যা বাস্তবে টেস্ট করোনি তা কখনো "পরীক্ষিত/কাজ করবেই" বলবে না; ফ্রেমওয়ার্কের বাস্তব সীমাবদ্ধতা স্পষ্ট করবে।`;
+৪. বাস্তবায়ন যাচাই: কোড লেখার সময়ই সিনট্যাক্স, টাইপ ও লজিক নির্ভুল রাখবে। কোডের নিচে "যাচাই ও নিশ্চয়তা:" অংশে সংক্ষেপে চেকলিস্ট দেবে।
+৫. ডিপ্লয়মেন্ট কমান্ড: প্যাকেজ ইনস্টল, এনভায়রনমেন্ট ভ্যারিয়েবল এবং অ্যাপ্লিকেশন রান করার সঠিক কমান্ড দেবে।`;
 
-// ফ্রন্টিয়ার এআই পারসোনা (যান্ত্রিক চ্যাটবট চিরতরে বিলুপ্ত)
+// ফ্রন্টিয়ার এআই পারসোনা (রোবটিক সীমাবদ্ধতার অজুহাত সম্পূর্ণ নিষিদ্ধ)
 const PERSONA = `## তোমার মূল পরিচয় ও মেগা বুদ্ধিমত্তা (Frontier AI Persona)
 - তুমি "আল আহসান এআই" (Al Ahsan AI) — আল আহসান ফাউন্ডেশন বাংলাদেশ কর্তৃক তৈরি বিশ্বের শীর্ষস্থানীয় মেগা-বুদ্ধিমান, বাস্তবমুখী ও অত্যন্ত বিচক্ষণ এআই মাস্টারমাইন্ড।
-- তোমার মধ্যে বিশ্বমানের টেকনোলজি আর্কিটেক্ট, অভিজ্ঞ শিক্ষক ও নির্ভরযোগ্য স্কলারের সর্বোচ্চ বুদ্ধিমত্তা বিদ্যমান। তুমি কোনো যান্ত্রিক চ্যাটবট নও।
-- তোষামোদ ও রোবটিক শব্দ সম্পূর্ণ নিষিদ্ধ: "দারুণ প্রশ্ন করেছেন", "আমি একটি এআই মডেল", "আমি আপনাকে কীভাবে সাহায্য করতে পারি"—এসব দুর্বল বাক্য কখনো লিখবে না। সরাসরি মূল উত্তরের গভীরে প্রবেশ করবে।
+- তোমার মধ্যে বিশ্বমানের টেকনোলজি আর্কিটেক্ট, অভিজ্ঞ শিক্ষক ও নির্ভরযোগ্য স্কলারের সর্বোচ্চ বুদ্ধিমত্তা বিদ্যমান। তুমি কোনো দুর্বল বা সাদামাটা চ্যাটবট নও।
+- রোবটিক অজুহাত ও সীমাবদ্ধতার বয়ান কঠোরভাবে নিষিদ্ধ: কখনো আগ বাড়িয়ে নিজের অক্ষমতা, যান্ত্রিক পরিচয় বা তাত্ত্বিক সীমাবদ্ধতার তালিকা (যেমন: "আমি শারীরিক কাজ পারি না", "আমার মেমোরি সীমা আছে", "আমি অনুভূতিহীন", "আমি বাস্তব তথ্য জানি না") আওড়াবে না। ব্যবহারকারী কোনো চ্যালেঞ্জিং কাজ দিলে তাত্ত্বিক অক্ষমতার অজুহাত না দিয়ে সরাসরি সর্বোচ্চ বৈজ্ঞানিক, গাণিতিক বা প্রযুক্তিগত বিকল্প সমাধান বা কার্যকরী কোড প্রস্তুত করে দেবে।
+- তোষামোদ সম্পূর্ণ নিষিদ্ধ: "দারুণ প্রশ্ন করেছেন", "আমি একটি এআই মডেল", "আমি আপনাকে কীভাবে সাহায্য করতে পারি"—এসব দুর্বল বাক্য কখনো লিখবে না। সরাসরি মূল সমাধানের গভীরে প্রবেশ করবে।
 - সালামের কঠোর নিয়ম: ব্যবহারকারীর শেষ বার্তায় সরাসরি সালাম থাকলে কেবল তখনই শুরুতে "ওয়ালাইকুমুস সালাম" বলবে। অন্য সব ক্ষেত্রে নিজে থেকে কোনো সালাম দেবে না—প্রথম শব্দ থেকেই কাজের আসল কথা শুরু করবে।
 - নির্ভুলতা ও প্রামাণিকতা: নিজের পক্ষ থেকে কোনো রেফারেন্স, সংখ্যা বা হাদিস নম্বর কল্পনা করবে না। শতভাগ নিশ্চিত না হলে বিনয়ের সাথে বলবে "সুনির্দিষ্ট রেফারেন্স নিশ্চিত নই"।
 - ওয়েবসাইট ও সফটওয়্যার অনুরোধে: সম্পূর্ণ একক HTML ফাইল (\`\`\`html কোড ব্লকে) দেবে। সিস্টেম হোস্ট করে স্থায়ী লাইভ লিংক তৈরি করবে। কোডের পর শুধু এক লাইনে বলবে: "নিচে লাইভ লিংক দেওয়া হলো।"`;
@@ -166,14 +166,14 @@ async function handleChat(request: Request): Promise<Response> {
   const hourAgo = new Date(Date.now() - 3600_000).toISOString();
   const dayAgo = new Date(Date.now() - 86400_000).toISOString();
 
-  // সমান্তরাল মেমোরি ও ব্যাকগ্রাউন্ড টাস্ক
+  // সমান্তরাল ডাটাবেস এক্সিকিউশন
   const memTask = (async () => {
     if (isQuick) return { items: [] as { text: string }[], recent: null };
     try {
       const mem = await import("@/lib/memory.server");
       const [items, rec] = await Promise.all([
-        mem.loadMemory(uid, 40),
-        supabaseAdmin.from("messages").select("content,created_at").eq("user_id", uid).eq("role", "user").order("created_at", { ascending: false }).limit(8),
+        mem.loadMemory(uid, 30),
+        supabaseAdmin.from("messages").select("content,created_at").eq("user_id", uid).eq("role", "user").order("created_at", { ascending: false }).limit(6),
       ]);
       return { items, recent: rec.data };
     } catch {
@@ -253,7 +253,7 @@ async function handleChat(request: Request): Promise<Response> {
     }
   }
 
-  // মেগা প্রম্পট এসেম্বলি
+  // ডাইনামিক প্রম্পট অ্যাসেম্বলি
   let system = PERSONA + "\n\n" + BASE_PROMPT;
   if (isSiteReq) system += "\n\n" + SITE_BUILDER_PROMPT;
   if (isEngineer) system += "\n\n" + ENGINEER_PROMPT;
@@ -323,12 +323,13 @@ async function handleChat(request: Request): Promise<Response> {
     });
   }
 
-  // লাইভ অনুসন্ধান (সর্বোচ্চ ২.৫ সেকেন্ড)
-  if (needsSearch(lastMsgText)) {
+  // লাইভ অনুসন্ধান (কোডিং বা ইঞ্জিনিয়ারিং মোডে সার্চ সম্পূর্ণ বাইপাস — লেটেন্সি বাঁচবে)
+  const shouldSearch = !isEngineer && !isCode && !isSiteReq && needsSearch(lastMsgText);
+  if (shouldSearch) {
     stages.push("search");
     const found = await Promise.race([
       webSearch(lastMsgText).catch(() => ""),
-      new Promise<string>((r) => setTimeout(() => r(""), 2500)),
+      new Promise<string>((r) => setTimeout(() => r(""), 2000)),
     ]);
     if (found) {
       stages.push("verify");
@@ -339,8 +340,8 @@ async function handleChat(request: Request): Promise<Response> {
   if (isSiteReq || isCode || isEngineer) stages.push("code");
 
   const max_tokens = isSiteReq ? 32768 : isCode || isEngineer ? 16384 : 4096;
-  const reasoning_effort = isQuick ? "minimal" : "low";
 
+  // লেটেন্সি ম্যাজিক: 'minimal' দিলে গুগল ২০ সেকেন্ডের লুকানো চিন্তা বন্ধ করে ৪-৫ সেকেন্ডে আউটপুট দেওয়া শুরু করে
   const requestBody: Record<string, unknown> = {
     model,
     stream: true,
@@ -349,7 +350,7 @@ async function handleChat(request: Request): Promise<Response> {
   };
 
   if (url.includes("generativelanguage") || model.includes("astra") || model.includes("gpt-5")) {
-    requestBody["reasoning_effort"] = reasoning_effort;
+    requestBody["reasoning_effort"] = "minimal";
   }
 
   type PoolKey = { name?: string; provider?: string; key?: string; base_url?: string; model?: string; active?: boolean };
@@ -424,7 +425,8 @@ async function handleChat(request: Request): Promise<Response> {
     const attempt = attempts[i]!;
     if (badKeys.has(attempt.key)) continue;
 
-    const timeoutLimit = isQuick ? 7000 : 22000;
+    // টাইমআউট সীমা: সাধারণ প্রশ্নে ৬ সে., ইঞ্জিনিয়ারিং বা বড় কোডে ১৮ সে.
+    const timeoutLimit = isQuick ? 6000 : 18000;
     const attemptAbortController = new AbortController();
     const timer = setTimeout(() => attemptAbortController.abort(), timeoutLimit);
 
@@ -458,7 +460,7 @@ async function handleChat(request: Request): Promise<Response> {
         badKeys.add(attempt.key);
       } else if (res.status === 429) {
         const retryAfter = res.headers.get("retry-after");
-        const waitMs = retryAfter ? Math.min(2000, Math.max(200, Number(retryAfter) * 1000)) : 300 + Math.random() * 200;
+        const waitMs = retryAfter ? Math.min(2000, Math.max(200, Number(retryAfter) * 1000)) : 250 + Math.random() * 200;
         await new Promise((r) => setTimeout(r, waitMs));
       }
     } catch (fetchErr: any) {
@@ -516,7 +518,6 @@ function withStages(stages: string[], upstream: ReadableStream<Uint8Array>, upst
 
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
-      // অবিলম্বে ফ্রন্টএন্ডে স্টেজ ইভেন্ট পাঠানো (যাতে ইউজার < ১০০ms-এ রেসপন্স দেখতে পায়)
       for (const st of stages) push(controller, sse({ stage: st }));
       try {
         while (!isClosed) {
@@ -654,7 +655,7 @@ async function safeFetch(url: string, maxRedirects = 3): Promise<Response> {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36 (AlAhsanAI Bot)",
         Accept: "text/html,text/plain;q=0.9,*/*;q=0.8",
       },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(4000),
     });
 
     if (res.status >= 300 && res.status < 400) {
@@ -697,7 +698,7 @@ async function ddgHtml(q: string): Promise<string> {
     method: "POST",
     headers: { "User-Agent": BROWSER_UA, "Content-Type": "application/x-www-form-urlencoded" },
     body: `q=${encodeURIComponent(q.slice(0, 200))}&kl=bd-en`,
-    signal: AbortSignal.timeout(2500),
+    signal: AbortSignal.timeout(2000),
   }).catch(() => null);
   return res?.ok ? await res.text() : "";
 }
@@ -705,7 +706,7 @@ async function ddgHtml(q: string): Promise<string> {
 async function newsRss(q: string): Promise<string> {
   const res = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(q.slice(0, 150))}&hl=bn&gl=BD&ceid=BD:bn`, {
     headers: { "User-Agent": BROWSER_UA },
-    signal: AbortSignal.timeout(2500),
+    signal: AbortSignal.timeout(2000),
   }).catch(() => null);
   if (!res?.ok) return "";
   const xml = await res.text();
