@@ -239,7 +239,8 @@ async function handleChat(request: Request): Promise<Response> {
           // ইঞ্জিনিয়ার মোড: সবসময় ব্যবহারকারীর Google কী + Google-এর সবচেয়ে শক্তিশালী যুক্তির মডেল
           url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
           key = ownGoogle;
-          model = "gemini-3.1-pro-preview";
+          // Pro মডেল এই Google কী-তে কোটা নেই (মাপা: 429 quota exceeded) — তাই কী-তে চলা সবচেয়ে শক্তিশালী মডেল
+          model = "gemini-3.8-flash";
         } else if (ownGoogle && !picked && provider !== "openai") {
           url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
           key = ownGoogle;
@@ -359,8 +360,6 @@ async function handleChat(request: Request): Promise<Response> {
         const pool = (Array.isArray((keys as { key_pool?: unknown })?.key_pool) ? (keys as { key_pool: PoolKey[] }).key_pool : [])
           .filter((p) => p && p.active !== false && p.key?.trim());
         const attempts: { url: string; key: string; model: string; label: string }[] = [{ url, key, model, label: "primary" }];
-        // ইঞ্জিনিয়ার মোডে Pro মডেল ব্যর্থ হলে (যেমন ফ্রি কী) একই Google কী দিয়ে 3.8-flash-এ ফেরত
-        if (isEngineer && url.includes("generativelanguage")) attempts.push({ url, key, model: "gemini-3.8-flash", label: "engineer-fallback" });
         for (const p of pool) {
           if (p.provider === provider && p.key!.trim() !== key) attempts.push({ url, key: p.key!.trim(), model, label: p.name || provider });
         }
