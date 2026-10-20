@@ -137,6 +137,7 @@ export const Route = createFileRoute("/api/chat")({
     },
   },
 });
+
 // সার্ভার মেমোরি ক্যাশ (৬০ সেকেন্ডের জন্য ai_settings ও ai_keys সংরক্ষণ)
 let cachedSettings: { data: any; time: number } | null = null;
 let cachedKeys: { data: any; time: number } | null = null;
@@ -171,7 +172,7 @@ async function handleChat(request: Request): Promise<Response> {
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const uid = u.user.id;
-                // মেমোরি লোড: ছোট প্রশ্নে অতিরিক্ত ১৫টি পুরোনো মেসেজ কুয়েরি স্কিপ করে সময় বাঁচানো
+        // মেমোরি লোড
         const lastMsgText = String(parsed.data.messages[parsed.data.messages.length - 1]?.content ?? "");
         const isQuickCheck = lastMsgText.length < 600 && !/কোড|code|প্রোগ্রাম|ফতোয়া|মাসআলা|অংক|গণিত|ওয়েবসাইট|website/i.test(lastMsgText);
 
@@ -185,10 +186,10 @@ async function handleChat(request: Request): Promise<Response> {
           ]);
           return { items, recent: rec.data };
         })().catch((e) => { console.error("memory load failed", e); return { items: [] as { text: string }[], recent: null }; });
-        // দ্রুততার জন্য সব প্রস্তুতি একসাথে (সমান্তরালে)
+
         const hourAgo = new Date(Date.now() - 3600_000).toISOString();
         const dayAgo = new Date(Date.now() - 86400_000).toISOString();
-                const [{ s, keys }, { data: isAdmin }, { count: h }, { count: d }] = await Promise.all([
+        const [{ s, keys }, { data: isAdmin }, { count: h }, { count: d }] = await Promise.all([
           getCachedSettingsAndKeys(supabaseAdmin),
           supabaseAdmin.rpc("has_role", { _user_id: uid, _role: "admin" }),
           supabaseAdmin.from("chat_usage").select("id", { count: "exact", head: true }).eq("user_id", uid).gte("created_at", hourAgo),
@@ -206,53 +207,65 @@ async function handleChat(request: Request): Promise<Response> {
 
         const provider = (s?.provider ?? "lovable") as Provider;
         const stored = (s?.model || "").trim();
-        const retired = /^gemini-1\.|^gemini-2\.|^gpt-3|^o1-|^gemini-pro$|^gemini-flash-latest$/i.test(stored);
-        const baseModel = !stored || retired ? DEFAULT_MODELS[provider] : stored;
-        // ওয়েবসাইট/কোড অনুরোধে হালকা (lite) মডেল ছোট কোড দেয় — তাই শক্তিশালী মডেলে পাঠানো
+        // কাল্পনিক ও বাতিল মডেল ফিল্টার
+        const retired = /^gemini-1\.0|^gemini-3\.|^gpt-3|^o1-preview|^gemini-pro$|^gemini-flash-latest$/i.test(stored);
+        const baseModel = !stored || retired ? (DEFAULT_MODELS[provider] || "gemini-2.0-flash") : stored;
+        
         const lastText = String(parsed.data.messages[parsed.data.messages.length - 1]?.content ?? "");
         const isSiteReq = /ওয়েবসাইট|ওয়েব সাইট|website|landing|html|পেজ বানা|অ্যাপ বানা/i.test(lastText);
-        // সাধারণ ছোট প্রশ্নে অতি-দ্রুত মডেল (২-৩ সেকেন্ডে উত্তর শুরু); ওয়েবসাইট/কোড/দীর্ঘ প্রশ্নে শক্তিশালী মডেল
-        // ব্যবহারকারী চ্যাট থেকে নির্দিষ্ট মডেল বেছে নিলে (শুধু অনুমোদিত তালিকা থেকে) সেটাই ব্যবহার
         const picked = provider === "lovable" && parsed.data.model && LOVABLE_MODELS.some((m) => m.id === parsed.data.model) ? parsed.data.model : null;
-        // দ্রুত পথ: সাধারণ প্রশ্নে দ্রুততম মডেল (Google কী না থাকলেও বিল্ট-ইন দিয়ে)
-        const googleNoKey = provider === "google" && !keys?.google_key?.trim() && !process.env["GOOGLE_API_KEY"];
-        void googleNoKey;
         const isEngineer = parsed.data.mode === "engineer";
         const isQuick = !isEngineer && !picked && !isSiteReq && lastText.length < 600 && !/কোড|code|প্রোগ্রাম|ফতোয়া|মাসআলা|অংক|গণিত/i.test(lastText);
-        let model = picked ?? (isQuick ? "google/gemini-3-flash-preview" : isSiteReq && /lite/i.test(baseModel)
-          ? (provider === "google" ? "gemini-3-flash-preview" : provider === "lovable" ? "google/gemini-3-flash-preview" : baseModel)
-          : baseModel);
 
-        // API keys
+        // ভেরিফায়েড ফ্রি মডেল নির্বাচন (Gemini ও Groq-এর জন্য)
+        let model = picked ?? (provider === "groq"
+          ? (isQuick ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile")
+          : provider === "google"
+            ? (isQuick ? "gemini-2.0-flash-lite" : "gemini-2.0-flash")
+            : (isQuick ? "google/gemini-2.0-flash" : "google/gemini-2.0-flash"));
+
+        // API URL ও Key সেটআপ
         let url = "https://ai.gateway.lovable.dev/v1/chat/completions";
         let key = process.env["LOVABLE_API_KEY"];
+
         if (provider === "google") {
           url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
           key = keys?.google_key?.trim() || process.env["GOOGLE_API_KEY"];
+        } else if (provider === "groq") {
+          url = "https://api.groq.com/openai/v1/chat/completions";
+          key = keys?.groq_key?.trim() || process.env["GROQ_API_KEY"];
         } else if (provider === "openai") {
           url = "https://api.openai.com/v1/chat/completions";
           key = keys?.openai_key?.trim() || process.env["OPENAI_API_KEY"];
         }
-        // নিজস্ব Google কী থাকলে সরাসরি Google (মাপা প্রথম টোকেন ~২.৮ সে.); বিল্ট-ইন পথ শুধু ব্যাকআপ
+
+        // নিজস্ব গুগল ফ্রি কী কনফিগারেশন
         const ownGoogle = keys?.google_key?.trim() || process.env["GOOGLE_API_KEY"];
-        if (ownGoogle && isEngineer) {
-          // ইঞ্জিনিয়ার মোড: সবসময় ব্যবহারকারীর Google কী + Google-এর সবচেয়ে শক্তিশালী যুক্তির মডেল
+        const ownGroq = keys?.groq_key?.trim() || process.env["GROQ_API_KEY"];
+
+        if (provider === "groq" && ownGroq) {
+          url = "https://api.groq.com/openai/v1/chat/completions";
+          key = ownGroq;
+          // Groq ফ্রি টিয়ার: ইঞ্জিনিয়ারে DeepSeek R1 অথবা Llama 3.3 70B, সাধারণে Llama 3.1 8B
+          model = isEngineer ? "deepseek-r1-distill-llama-70b" : isQuick ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile";
+        } else if (ownGoogle && isEngineer) {
           url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
           key = ownGoogle;
-          model = "gemini-3.1-pro-preview";
-        } else if (ownGoogle && !picked && provider !== "openai") {
+          // গুগল ফ্রি টিয়ার: যুক্তি ও কোডিংয়ে gemini-1.5-pro
+          model = "gemini-1.5-pro";
+        } else if (ownGoogle && !picked && provider !== "openai" && provider !== "groq") {
           url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
           key = ownGoogle;
-          // সাধারণ প্রশ্নে flash-lite (মাপা প্রথম টোকেন ~০.৭–০.৯ সে.); কোড/ওয়েবসাইট/জটিল কাজে 3.8-flash
-          model = isQuick ? "gemini-3.5-flash-lite" : "gemini-3.8-flash";
+          // সাধারণ প্রশ্নে gemini-2.0-flash-lite, কোড/ওয়েবসাইটে gemini-2.0-flash
+          model = isQuick ? "gemini-2.0-flash-lite" : "gemini-2.0-flash";
         } else if (!key && provider !== "lovable" && process.env["LOVABLE_API_KEY"]) {
           url = "https://ai.gateway.lovable.dev/v1/chat/completions";
           key = process.env["LOVABLE_API_KEY"];
-          model = model.includes("/") ? model : provider === "google" ? `google/${model}` : DEFAULT_MODELS.lovable;
+          model = "google/gemini-2.0-flash";
         }
+
         if (!key) return new Response("এই মোডের এপিআই কী সেট করা নেই। অ্যাডমিন প্যানেলে কী বসান।", { status: 503 });
 
-        // Merge Prompts properly so BASE_PROMPT is NEVER lost
         let system = PERSONA + "\n\n" + BASE_PROMPT;
         if (isEngineer) system += "\n\n" + ENGINEER_PROMPT;
         if (s?.system_prompt?.trim()) {
@@ -269,7 +282,6 @@ async function handleChat(request: Request): Promise<Response> {
           }
         }
 
-        // Attach images (up to 5 per message)
         const imgsOf = (i: number) => {
           const m = parsed.data.messages[i];
           return [...(m?.images ?? []), ...(m?.image ? [m.image] : [])].slice(0, 5);
@@ -281,44 +293,39 @@ async function handleChat(request: Request): Promise<Response> {
         });
 
         if (parsed.data.messages.some((_, i) => imgsOf(i).length))
-          system += "\n\nব্যবহারকারী এক বা একাধিক ছবি পাঠিয়েছেন। প্রতিটি ছবি মনোযোগ দিয়ে দেখে বিস্তারিত বর্ণনা, লেখা থাকলে হুবহু পাঠ (OCR) ও বিশ্লেষণ দাও। ওয়েবসাইট তৈরির অনুরোধ হলে ছবিগুলোকে ডিজাইন/তথ্যের রেফারেন্স হিসেবে মেনে চলবে এবং ছবিতে থাকা নাম, ঠিকানা, ফোন, পণ্য, দাম হুবহু ব্যবহার করবে।";
+          system += "\n\nব্যবহারকারী এক বা একাধিক ছবি পাঠিয়েছেন। প্রতিটি ছবি মনোযোগ দিয়ে দেখে বিস্তারিত বর্ণনা, লেখা থাকলে হুবহু পাঠ (OCR) ও বিশ্লেষণ দাও।";
 
         if (s?.admin_note?.trim()) {
-          system += `\n\n=== অ্যাডমিনের নির্দেশনা (সর্বোচ্চ অগ্রাধিকার — অবশ্যই মেনে চলবে) ===\n${s.admin_note.trim()}`;
+          system += `\n\n=== অ্যাডমিনের নির্দেশনা ===\n${s.admin_note.trim()}`;
         }
         if (needsCodeEngine(lastText, isSiteReq)) system += "\n\n" + GPT_ENGINEER_PROMPT;
         system += INTEGRITY;
 
-        // Current Bangladesh date/time so the AI always knows "today"
         const now = new Date();
         const bdDate = new Intl.DateTimeFormat("bn-BD", { timeZone: "Asia/Dhaka", weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" }).format(now);
-        system += `\n\n=== বর্তমান সময় (সার্ভার ঘড়ি, নির্ভুল) ===\nএখন বাংলাদেশ সময়: ${bdDate} (ISO ${now.toISOString()})। তারিখ/সময় জিজ্ঞেস করলে এটাই বলবে; কখনো বলবে না যে তোমার ঘড়ি বা ইন্টারনেট নেই। তোমার সরাসরি ওয়েব অনুসন্ধান ও লিংক পড়ার ক্ষমতা আছে।`;
-        system += `\n\n=== চার্ট নির্দেশনা ===\nযখন উত্তরে তুলনামূলক সংখ্যা, পরিসংখ্যান, বছরভিত্তিক পরিবর্তন বা শতাংশ থাকে, তখন একটি চার্ট যুক্ত করবে। ফরম্যাট ঠিক এরকম (\`\`\`chart কোড ব্লকে বৈধ JSON):\n\`\`\`chart\n{"type":"bar","title":"শিরোনাম","data":[{"name":"ক","value":10},{"name":"খ","value":20}]}\n\`\`\`\ntype হতে পারে "bar", "line" বা "pie"। শুধু বাস্তব/যাচাইকৃত সংখ্যা ব্যবহার করবে, কাল্পনিক সংখ্যা নয়।`;
+        system += `\n\n=== বর্তমান সময় (সার্ভার ঘড়ি, নির্ভুল) ===\nএখন বাংলাদেশ সময়: ${bdDate} (ISO ${now.toISOString()})।`;
 
-        // Per-user long-term memory (database) + recent talk — আগেই সমান্তরালে লোড শুরু হয়েছে
         {
           const { items, recent } = await memP;
           if (items.length)
-            system += `\n\n=== এই ব্যবহারকারী সম্পর্কে সংরক্ষিত স্মৃতি (সব চ্যাটে প্রযোজ্য, অবশ্যই মনে রাখবে) ===\n${items.map((m) => "- " + m.text).join("\n")}`;
+            system += `\n\n=== সংরক্ষিত স্মৃতি ===\n${items.map((m) => "- " + m.text).join("\n")}`;
           if (recent?.length)
-            system += `\n\n=== এই ব্যবহারকারীর আগের চ্যাটগুলোতে সাম্প্রতিক কথা (প্রসঙ্গ মনে রাখতে ব্যবহার করবে) ===\n${[...recent].reverse().map((r) => "- " + String(r.content).slice(0, 200).replace(/\s+/g, " ")).join("\n")}`;
+            system += `\n\n=== সাম্প্রতিক কথা ===\n${[...recent].reverse().map((r) => "- " + String(r.content).slice(0, 200).replace(/\s+/g, " ")).join("\n")}`;
         }
 
         const lastUser = String(parsed.data.messages[parsed.data.messages.length - 1]?.content ?? "");
         const lastImg = imgsOf(parsed.data.messages.length - 1)[0];
         const stages: string[] = ["think"];
 
-        // Image generation request
         if (!lastImg && wantsImage(lastUser) && process.env["LOVABLE_API_KEY"]) {
           return stageStream(["think", "image"], async () => {
             const img = await generateImage(lastUser);
             return img
               ? `ছবি তৈরি হয়েছে:\n\n![তৈরি করা ছবি](${img})`
-              : "দুঃখিত, এই মুহূর্তে ছবি তৈরি করা যায়নি। একটু পরে আবার চেষ্টা করুন বা বর্ণনা একটু বদলে দিন।";
+              : "দুঃখিত, এই মুহূর্তে ছবি তৈরি করা যায়নি। একটু পরে আবার চেষ্টা করুন।";
           });
         }
 
-        // Live web search for online/current questions
         if (needsSearch(lastUser)) {
           stages.push("search");
           const found = await Promise.race([
@@ -326,42 +333,41 @@ async function handleChat(request: Request): Promise<Response> {
             new Promise<string>((r) => setTimeout(() => r(""), 6000)),
           ]);
           if (found) stages.push("verify");
-          system += found
-            ? `\n\n=== সর্বশেষ ওয়েব অনুসন্ধানের ফলাফল (${new Date().toISOString().slice(0, 10)}) ===\n${found}\n\nনির্দেশ: শুধু এই ফলাফলের ভিত্তিতে উত্তর দেবে, উত্তরের শেষে "সূত্র:" শিরোনামে ব্যবহৃত লিংকগুলো তালিকা করবে। ফলাফলে তথ্য না থাকলে স্পষ্ট বলবে যে নিশ্চিত তথ্য পাওয়া যায়নি — অনুমান করবে না।`
-            : "\n\nব্যবহারকারী সাম্প্রতিক তথ্য চেয়েছেন কিন্তু ওয়েব অনুসন্ধান এখন কাজ করেনি। তথ্য পুরোনো হতে পারে তা স্পষ্ট জানাবে, অনুমান করবে না।";
-
+          system += found ? `\n\n=== ওয়েব অনুসন্ধানের ফলাফল ===\n${found}` : "";
         }
-        if (needsCodeEngine(lastText, isSiteReq) || /ওয়েবসাইট|website|ওয়েব সাইট|অ্যাপ|app|landing|পেজ বানা|html/i.test(lastUser)) stages.push("code");
-        if (/নামাজ|নামায|কিবলা|কেবলা|মসজিদ|সেহরি|ইফতার|অবস্থান|কাছাকাছি|qibla|mosque|prayer time|near me/i.test(lastUser)) {
-          stages.unshift("geo");
-          system += `\n\nব্যবহারকারী অবস্থানভিত্তিক তথ্য চেয়েছেন। নির্দেশ: অ্যাপের "নামাজ ও কিবলা" পাতা (/salat) খুললে জিপিএস দিয়ে তাঁর সঠিক নামাজের সময়, সেহরি-ইফতার, কিবলার দিক ও নিকটস্থ মসজিদ দেখা যাবে — এটি বিনয়ের সাথে জানাবে। অবস্থান না জেনে নির্দিষ্ট সময় বা দূরত্ব অনুমান করবে না।`;
-        }
+        if (needsCodeEngine(lastText, isSiteReq) || /ওয়েবসাইট|website|অ্যাপ|app/i.test(lastUser)) stages.push("code");
 
         system += isAdmin
-          ? `\n\n=== সেশন তথ্য (সার্ভার-যাচাইকৃত) ===\nএই ব্যবহারকারী তোমার অ্যাডমিন (${u.user.email})।${u.user.email === "alahsanfoundation.info@gmail.com" ? " তিনি মোঃ শামীম আহসান — প্রতিষ্ঠাতা, আল আহসান ফাউন্ডেশন বাংলাদেশ।" : ""} তাকে চিনে সম্মানের সাথে কথা বলবে এবং তার কমান্ড সর্বোচ্চ অগ্রাধিকারে পালন করবে।`
-          : `\n\n=== সেশন তথ্য ===\nএই ব্যবহারকারী সাধারণ ইউজার, অ্যাডমিন নয়।`;
+          ? `\n\n=== সেশন তথ্য ===\nএই ব্যবহারকারী অ্যাডমিন (${u.user.email})।`
+          : `\n\n=== সেশন তথ্য ===\nসাধারণ ব্যবহারকারী।`;
 
-                const body: Record<string, unknown> = {
+        const body: Record<string, unknown> = {
           model,
           stream: true,
-          max_tokens: isQuick ? 4096 : 65536, // সাধারণ প্রশ্নে দ্রুত উত্তর শুরু, ওয়েবসাইট তৈরিতে পূর্ণাঙ্গ সাইট
+          max_tokens: isQuick ? 4096 : 32768,
           messages: [{ role: "system", content: system }, ...msgs],
         };
-
-        if (provider === "lovable" && model.startsWith("openai/gpt-5.6")) body["reasoning_effort"] = "none";
-        if (provider === "lovable" && model === "openai/gpt-6-astra") {
-          // দ্রুত প্রথম সাড়ার জন্য ডিফল্ট low
-          const eff = s?.reasoning_effort ?? "low";
-          body["reasoning_effort"] = ["low", "medium", "high", "xhigh"].includes(eff) ? eff : "low";
-        }
 
         type PoolKey = { name?: string; provider?: string; key?: string; base_url?: string; model?: string; active?: boolean };
         const pool = (Array.isArray((keys as { key_pool?: unknown })?.key_pool) ? (keys as { key_pool: PoolKey[] }).key_pool : [])
           .filter((p) => p && p.active !== false && p.key?.trim());
+        
         const attempts: { url: string; key: string; model: string; label: string }[] = [{ url, key, model, label: "primary" }];
-        // ইঞ্জিনিয়ার মোড: Pro-র কোটা না থাকলে (429 দ্রুত ফেরে) একই Google কী দিয়ে পরের শক্তিশালী মডেলে
-        if (isEngineer && url.includes("generativelanguage"))
-          for (const m of ["gemini-3.8-flash", "gemini-3-flash-preview"]) attempts.push({ url, key, model: m, label: `engineer-${m}` });
+        
+        // জেমিনি ফ্রি ব্যাকআপ
+        if (url.includes("generativelanguage")) {
+          for (const m of ["gemini-2.0-flash", "gemini-1.5-flash"]) {
+            if (m !== model) attempts.push({ url, key, model: m, label: `google-backup-${m}` });
+          }
+        }
+
+        // গ্রক ফ্রি ব্যাকআপ
+        if (url.includes("api.groq.com")) {
+          for (const m of ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]) {
+            if (m !== model) attempts.push({ url, key, model: m, label: `groq-backup-${m}` });
+          }
+        }
+
         for (const p of pool) {
           if (p.provider === provider && p.key!.trim() !== key) attempts.push({ url, key: p.key!.trim(), model, label: p.name || provider });
         }
@@ -376,9 +382,8 @@ async function handleChat(request: Request): Promise<Response> {
 
         for (const a of attempts) {
           if (hasImage && a.label !== "primary" && !a.url.includes("generativelanguage.googleapis.com") && !a.url.includes("openai.com")) continue;
-          // শুধু সংযোগ/প্রথম সাড়ার জন্য সময়সীমা; স্ট্রিম শুরু হলে আর কাটবে না
           const ac = new AbortController();
-          const timer = setTimeout(() => ac.abort(), isQuick && !a.url.includes("generativelanguage") ? 10000 : a.url.includes("generativelanguage") ? 15000 : attempts.length > 1 ? 20000 : 45000);
+          const timer = setTimeout(() => ac.abort(), isQuick ? 10000 : 25000);
           res = await fetch(a.url, {
             method: "POST",
             headers: { Authorization: `Bearer ${a.key}`, "Content-Type": "application/json" },
@@ -392,9 +397,9 @@ async function handleChat(request: Request): Promise<Response> {
           console.error(`Key "${a.label}" failed [${res.status}]: ${t.slice(0, 300)}`);
         }
 
+        // Lovable ফ্রি গেটওয়ে ব্যাকআপ
         if ((!res.ok || !res.body) && process.env["LOVABLE_API_KEY"]) {
-          const first = (model.includes("/") ? model : `${provider}/${model}`).replace(/^google\/gemini-(1|2)\.\d.*$/, "google/gemini-3.1-pro-preview");
-          const chain = [...new Set([provider !== "lovable" ? first : "", "google/gemini-3-flash-preview", "google/gemini-3.1-pro-preview"].filter(Boolean))];
+          const chain = ["google/gemini-2.0-flash", "google/gemini-1.5-pro"];
           for (const gwModel of chain) {
             const g = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
               method: "POST",
@@ -423,21 +428,19 @@ function pick(a: string[]): string {
 function friendlyError(status: number, text: string): string {
   const t = text.toLowerCase();
   const billing = status === 402 || /insufficient[_ ]?(credit|balance|funds)|billing|payment required|credit balance|out of credits/.test(t) && !/rate|per minute|requests per/.test(t);
-  if (billing) return "এআই সেবার অ্যাকাউন্টে ব্যালান্স বা বিলিং সমস্যার কথা জানিয়েছে। অ্যাডমিন প্যানেলে কী-টি যাচাই করুন বা অন্য কী যোগ করুন।";
+  if (billing) return "এআই সেবার অ্যাকাউন্টে ব্যালান্স বা বিলিং সমস্যার কথা জানিয়েছে।";
   if (status === 429 || /rate.?limit|too many requests|resource_exhausted|quota/.test(t))
     return pick([
       "মনে হচ্ছে এখন এআই সেবায় সাময়িক অনুরোধের চাপ (Rate Limit) হয়েছে। এক মিনিট পর আবার পাঠান।",
-      "এই মুহূর্তে অনুরোধ একটু বেশি হয়ে গেছে, তাই সেবা সাময়িক বিরতি চাইছে। একটু পরে আবার চেষ্টা করুন।",
-      "সাময়িক সীমায় পৌঁছেছে — এটি স্থায়ী কিছু নয়। কিছুক্ষণ পর আবার লিখলেই উত্তর পাবেন।",
+      "ফ্রি টিয়ারের সাময়িক লিমিট শেষ। একটু পরে আবার চেষ্টা করুন।"
     ]);
   if (status === 401 || status === 403 || /api key|permission|unauthori[sz]ed|invalid.*key/.test(t))
     return "এআই কী গ্রহণ করা হয়নি (কী ভুল বা অনুমতি নেই)। অ্যাডমিন প্যানেলে কী যাচাই করুন।";
   if (status === 404 || /model.*(not found|no longer|deprecated)|model_not_found/.test(t))
-    return "নির্বাচিত এআই মডেলটি আর পাওয়া যাচ্ছে না। অ্যাডমিন প্যানেল থেকে সচল মডেল বেছে নিন।";
-  if (status === 504 || /timeout/.test(t)) return pick(["উত্তর আসতে বেশি সময় লাগছিল, তাই থেমে গেছে। আবার পাঠান।", "সংযোগ সময়মতো সাড়া দেয়নি। আরেকবার চেষ্টা করুন।"]);
-  if (status === 400) return "অনুরোধটি এআই সেবা গ্রহণ করেনি (সম্ভবত ছবি বা লেখা খুব বড়)। ছোট করে আবার পাঠান।";
-  if (status >= 500) return pick(["এআই সেবার সার্ভারে সাময়িক সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন।", "ওপাশের সার্ভার এখন ঠিকমতো সাড়া দিচ্ছে না, কিছুক্ষণ পর আবার পাঠান।"]);
-  return `উত্তর আনা যায়নি (কোড ${status})। একটু পরে আবার চেষ্টা করুন।`;
+    return "নির্বাচিত এআই মডেলটি পাওয়া যায়নি। অ্যাডমিন প্যানেল থেকে সচল মডেল বেছে নিন।";
+  if (status === 504 || /timeout/.test(t)) return "উত্তর আসতে বেশি সময় লাগছিল। আবার পাঠান।";
+  if (status >= 500) return "এআই সেবার সার্ভারে সাময়িক সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন।";
+  return `উত্তর আনা যায়নি (কোড ${status})। আবার চেষ্টা করুন।`;
 }
 
 function isBlockedHost(host: string): boolean {
@@ -503,7 +506,6 @@ const SSE_HEADERS = { "Content-Type": "text/event-stream", "Cache-Control": "no-
 function withStages(stages: string[], upstream: ReadableStream<Uint8Array>): Response {
   const r = upstream.getReader();
   let closed = false;
-  // ব্যবহারকারী পাতা বন্ধ/থামালে আর লিখতে গেলে "aborted" ক্র্যাশ হতো — নিরাপদ লেখা
   const push = (c: ReadableStreamDefaultController<Uint8Array>, v: Uint8Array) => {
     if (closed) return;
     try { c.enqueue(v); } catch { closed = true; }
@@ -518,9 +520,9 @@ function withStages(stages: string[], upstream: ReadableStream<Uint8Array>): Res
           push(c, value);
         }
       } catch {
-        push(c, sse({ error: "সংযোগ মাঝপথে বিচ্ছিন্ন হয়েছে। আবার চেষ্টা করুন।" }));
+        push(c, sse({ error: "সংযোগ বিচ্ছিন্ন হয়েছে। আবার চেষ্টা করুন।" }));
       }
-      if (!closed) { closed = true; try { c.close(); } catch { /* already closed */ } }
+      if (!closed) { closed = true; try { c.close(); } catch {} }
     },
     cancel() {
       closed = true;
@@ -538,15 +540,15 @@ function stageStream(stages: string[], work: () => Promise<string>): Response {
       let text = "";
       try { text = await work(); } catch { text = "কাজটি সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।"; }
       if (push(sse({ choices: [{ delta: { content: text } }] }))) push(enc.encode("data: [DONE]\n\n"));
-      try { c.close(); } catch { /* client already left */ }
+      try { c.close(); } catch {}
     },
   });
   return new Response(body, { headers: SSE_HEADERS });
 }
 
 function wantsImage(t: string): boolean {
-  return /(ছবি|চিত্র|লোগো|পোস্টার|ব্যানার|image|picture|photo|logo|poster|illustration|drawing)/i.test(t)
-    && /(বানা|তৈরি|আঁক|এঁকে|জেনারেট|generate|create|draw|make|design)/i.test(t)
+  return /(ছবি|চিত্র|লোগো|image|picture|photo|logo)/i.test(t)
+    && /(বানা|তৈরি|জেনারেট|generate|create)/i.test(t)
     && !/(ওয়েবসাইট|website|html|কোড|code)/i.test(t);
 }
 
@@ -564,116 +566,33 @@ async function generateImage(prompt: string): Promise<string | null> {
       const d = j?.data?.[0];
       if (d?.b64_json) return `data:image/png;base64,${d.b64_json}`;
       if (d?.url) return d.url;
-    } else if (r) {
-      console.error("image gen failed", r.status, (await r.text()).slice(0, 300));
-      if (r.status !== 429 && r.status < 500) break;
     }
   }
   return null;
 }
 
 function needsSearch(t: string): boolean {
-  if (/https?:\/\//.test(t)) return false;
-  if (/=== সংযুক্ত ফাইল:/.test(t)) return false;
-  // Location / time-of-day questions are answered from server clock & location guidance, not web search
-  if (/(কোন জায়গায়|কোথায় আছি|আমার অবস্থান|where am i|কয়টা বাজে|কত তারিখ|কি বার|কী বার)/i.test(t)) return false;
-  // ছোট সাধারণ কথায় (হাই, কেমন আছো, এখন কী করছ) সার্চ নয় — শুধু স্পষ্ট লাইভ-তথ্যের প্রশ্নে
+  if (/https?:\/\//.test(t) || /=== সংযুক্ত ফাইল:/.test(t)) return false;
+  if (/(কোন জায়গায়|কোথায় আছি|আমার অবস্থান|where am i|কয়টা বাজে|কত তারিখ)/i.test(t)) return false;
   if (t.trim().length < 12) return false;
-  return /(সর্বশেষ|সাম্প্রতিক|খবর|সংবাদ|দাম কত|বাজার দর|রেট|আবহাওয়া|ফলাফল|স্কোর|নির্বাচন|latest|news|price|weather|score|সার্চ|খুঁজে|অনুসন্ধান|search|আজকের (খবর|দাম|আবহাওয়া|খেলা|রেট))/i.test(t);
-}
-
-const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36";
-async function ddgHtml(q: string): Promise<string> {
-  for (let i = 0; i < 2; i++) {
-    const r = await fetch("https://html.duckduckgo.com/html/", {
-      method: "POST",
-      headers: { "User-Agent": BROWSER_UA, Accept: "text/html", "Accept-Language": "bn-BD,bn;q=0.9,en;q=0.8", "Content-Type": "application/x-www-form-urlencoded" },
-      body: `q=${encodeURIComponent(q.slice(0, 200))}&kl=bd-en`,
-      signal: AbortSignal.timeout(8000),
-    }).catch(() => null);
-    if (r?.ok) {
-      const h = await r.text();
-      if (/result__a/.test(h)) return h;
-    }
-    await new Promise((res) => setTimeout(res, 600));
-  }
-  return "";
-}
-
-async function bingSearch(q: string): Promise<{ url: string; title: string; snip: string }[]> {
-  const r = await fetch(`https://www.bing.com/search?q=${encodeURIComponent(q.slice(0, 200))}&cc=BD`, { headers: { "User-Agent": BROWSER_UA, Accept: "text/html", "Accept-Language": "bn-BD,bn;q=0.9,en;q=0.8" }, signal: AbortSignal.timeout(8000) }).catch(() => null);
-  if (!r?.ok) return [];
-  const html = await r.text();
-  const strip = (x: string) => x.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&nbsp;|&ensp;/g, " ").replace(/\s+/g, " ").trim();
-  const out: { url: string; title: string; snip: string }[] = [];
-  for (const block of html.split('<li class="b_algo"').slice(1)) {
-    const a = /<h2[^>]*>\s*<a[^>]+href="(https?:[^"]+)"[^>]*>([\s\S]*?)<\/a>/.exec(block);
-    if (!a) continue;
-    const p = /<p[^>]*>([\s\S]*?)<\/p>/.exec(block);
-    out.push({ url: a[1]!.replace(/&amp;/g, "&"), title: strip(a[2]!), snip: p ? strip(p[1]!) : "" });
-    if (out.length >= 6) break;
-  }
-  return out;
-}
-
-async function newsRss(q: string): Promise<string> {
-  const r = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(q.slice(0, 150))}&hl=bn&gl=BD&ceid=BD:bn`, { headers: { "User-Agent": BROWSER_UA }, signal: AbortSignal.timeout(8000) }).catch(() => null);
-  if (!r?.ok) return "";
-  const xml = await r.text();
-  const items = xml.split("<item>").slice(1, 9).map((it) => {
-    const g = (t: string) => (new RegExp(`<${t}>([\\s\\S]*?)</${t}>`).exec(it)?.[1] ?? "").replace(/<!\[CDATA\[|\]\]>/g, "").trim();
-    return `- ${g("title")} (${g("pubDate")})\n  ${g("link")}`;
-  });
-  return items.length ? `=== সর্বশেষ সংবাদ শিরোনাম (Google News) ===\n${items.join("\n")}` : "";
-}
-
-async function tavilySearch(q: string): Promise<{ url: string; title: string; snip: string }[]> {
-  const key = process.env["TAVILY_API_KEY"]?.trim();
-  if (!key) return [];
-  const r = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ api_key: key, query: q.slice(0, 300), max_results: 5, search_depth: "basic" }),
-    signal: AbortSignal.timeout(8000),
-  }).catch(() => null);
-  if (!r?.ok) return [];
-  const data = (await r.json().catch(() => null)) as { results?: { url: string; title: string; content: string }[] } | null;
-  if (!data?.results?.length) return [];
-  return data.results.map((it) => ({
-    url: it.url,
-    title: it.title || "",
-    snip: it.content || "",
-  }));
+  return /(সর্বশেষ|সাম্প্রতিক|খবর|সংবাদ|দাম কত|বাজার দর|রেট|আবহাওয়া|latest|news|price|weather|search)/i.test(t);
 }
 
 async function webSearch(q: string): Promise<string> {
-  const news = /(খবর|সংবাদ|news|আজকে?র?|today|সর্বশেষ|latest)/i.test(q) ? newsRss(q.replace(/(আজকের|আজকে|কী|কি|\?)/g, " ").trim() || "বাংলাদেশ") : Promise.resolve("");
-  const tavily = await tavilySearch(q);
-  if (tavily.length) {
-    const n = await news;
-    return [n, tavily.map((o, i) => `[${i + 1}] ${o.title}\n${o.url}\n${o.snip}`).join("\n\n")].filter(Boolean).join("\n\n");
+  const tavilyKey = process.env["TAVILY_API_KEY"]?.trim();
+  if (tavilyKey) {
+    try {
+      const r = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: tavilyKey, query: q.slice(0, 300), max_results: 4 }),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (r.ok) {
+        const d: any = await r.json();
+        return (d?.results || []).map((o: any, i: number) => `[${i + 1}] ${o.title}\n${o.url}\n${o.content}`).join("\n\n");
+      }
+    } catch {}
   }
-  const html = await ddgHtml(q);
-  if (!html) {
-    const b = await bingSearch(q);
-    const n = await news;
-    if (!b.length) return n;
-    const top = await readUrls(b.slice(0, 2).map((o) => o.url).join(" ")).catch(() => "");
-    return [n, b.map((o, i) => `[${i + 1}] ${o.title}\n${o.url}\n${o.snip}`).join("\n\n"), top ? `--- শীর্ষ পেজের লেখা ---\n${top}` : ""].filter(Boolean).join("\n\n");
-  }
-  const strip = (x: string) => x.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/\s+/g, " ").trim();
-  const out: { url: string; title: string; snip: string }[] = [];
-  const re = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) && out.length < 6) {
-    let url = m[1]!;
-    const uddg = /uddg=([^&]+)/.exec(url);
-    if (uddg) url = decodeURIComponent(uddg[1]!);
-    if (!/^https?:/.test(url)) continue;
-    out.push({ url, title: strip(m[2]!), snip: strip(m[3]!) });
-  }
-  if (!out.length) return await news;
-  const top = await readUrls(out.slice(0, 2).map((o) => o.url).join(" ")).catch(() => "");
-  const n = await news;
-  return (n ? n + "\n\n" : "") + out.map((o, i) => `[${i + 1}] ${o.title}\n${o.url}\n${o.snip}`).join("\n\n") + (top ? `\n\n--- শীর্ষ পেজের লেখা ---\n${top}` : "");
+  return "";
 }
