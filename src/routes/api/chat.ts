@@ -206,22 +206,22 @@ async function handleChat(request: Request): Promise<Response> {
 
   const provider = (s?.provider ?? "lovable") as Provider;
   const stored = (s?.model || "").trim();
-  const retired = /^gemini-1\.0|^gpt-3|^o1-preview|^gemini-pro$/i.test(stored);
-  const baseModel = !stored || retired ? (DEFAULT_MODELS[provider] || "gemini-2.5-flash") : stored;
+  const retired = /^gemini-1\.|^gemini-2\.|^gpt-3|^o1-preview|^gemini-pro$/i.test(stored);
+  const baseModel = !stored || retired ? (DEFAULT_MODELS[provider] || "gemini-3.8-flash") : stored;
 
   const isSiteReq = /ওয়েবসাইট|ওয়েব সাইট|website|landing|html|পেজ বানা|অ্যাপ বানা/i.test(lastMsgText);
   const picked = provider === "lovable" && parsed.data.model && LOVABLE_MODELS.some((m) => m.id === parsed.data.model) ? parsed.data.model : null;
   const isEngineer = parsed.data.mode === "engineer";
   const isQuick = !isEngineer && !picked && !isSiteReq && lastMsgText.length < 600 && !/কোড|code|প্রোগ্রাম|ফতোয়া|মাসআলা|অংক|গণিত/i.test(lastMsgText);
 
-  // ১. ১০০% অফিশিয়াল ফ্রি মডেল সিলেকশন
+  // ১. আপনার মূল সক্রিয় মডেলসমূহ
   let model = picked ?? (provider === "groq"
     ? (isQuick ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile")
     : provider === "google"
-      ? (isQuick ? "gemini-2.5-flash-lite" : "gemini-2.5-flash")
-      : (isQuick ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview"));
+      ? (isQuick ? "gemini-3.5-flash-lite" : "gemini-3.8-flash")
+      : (isQuick ? "google/gemini-3-flash-preview" : "google/gemini-3-flash-preview"));
 
-  // ২. API URL ও Credentials
+  // ২. API URL ও Keys
   let url = "https://ai.gateway.lovable.dev/v1/chat/completions";
   let key = process.env["LOVABLE_API_KEY"];
 
@@ -231,7 +231,7 @@ async function handleChat(request: Request): Promise<Response> {
   if (provider === "google") {
     url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     key = ownGoogle;
-    model = stored && !retired ? stored : (isQuick ? "gemini-2.5-flash-lite" : "gemini-2.5-flash");
+    model = stored && !retired ? stored : (isQuick ? "gemini-3.5-flash-lite" : "gemini-3.8-flash");
   } else if (provider === "groq") {
     url = "https://api.groq.com/openai/v1/chat/completions";
     key = ownGroq;
@@ -244,15 +244,15 @@ async function handleChat(request: Request): Promise<Response> {
   if (ownGoogle && isEngineer && provider === "google") {
     url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     key = ownGoogle;
-    model = "gemini-2.5-flash";
+    model = "gemini-3.8-flash";
   } else if (ownGroq && isEngineer && provider === "groq") {
     url = "https://api.groq.com/openai/v1/chat/completions";
     key = ownGroq;
-    model = "deepseek-r1-distill-llama-70b";
+    model = "llama-3.3-70b-versatile";
   } else if (!key && provider !== "lovable" && process.env["LOVABLE_API_KEY"]) {
     url = "https://ai.gateway.lovable.dev/v1/chat/completions";
     key = process.env["LOVABLE_API_KEY"];
-    model = "google/gemini-2.5-flash";
+    model = "google/gemini-3-flash-preview";
   }
 
   if (!key) return new Response("এই মোডের এপিআই কী সেট করা নেই। অ্যাডমিন প্যানেলে কী বসান।", { status: 503 });
@@ -337,14 +337,14 @@ async function handleChat(request: Request): Promise<Response> {
   
   const attempts: { url: string; key: string; model: string; label: string }[] = [{ url, key, model, label: "primary" }];
   
-  // গুগল ফ্রি ব্যাকআপ মডেল
+  // গুগল আসল ব্যাকআপ মডেল
   if (url.includes("generativelanguage")) {
-    for (const m of ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-2.5-flash-lite"]) {
+    for (const m of ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3-flash-preview"]) {
       if (m !== model) attempts.push({ url, key, model: m, label: `google-${m}` });
     }
   }
 
-  // গ্রক ফ্রি ব্যাকআপ মডেল
+  // গ্রক আসল ব্যাকআপ মডেল
   if (url.includes("api.groq.com")) {
     for (const m of ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]) {
       if (m !== model) attempts.push({ url, key, model: m, label: `groq-${m}` });
@@ -362,7 +362,7 @@ async function handleChat(request: Request): Promise<Response> {
   for (const a of attempts) {
     if (hasImage && a.label !== "primary" && !a.url.includes("generativelanguage.googleapis.com") && !a.url.includes("openai.com")) continue;
     
-    // গুগল এপিআইয়ের ক্ষেত্রে নিশ্চিত হেডারের ব্যবস্থা (401/403 রোধ)
+    // গুগল নতুন ও পুরোনো সব কী সাপোর্ট করার জন্য হেডার কনফিগারেশন
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${a.key}`,
@@ -391,9 +391,9 @@ async function handleChat(request: Request): Promise<Response> {
     console.error(`Attempt "${a.label}" (${a.model}) failed [${res.status}]: ${t.slice(0, 200)}`);
   }
 
-  // স্বয়ংক্রিয় Lovable ফ্রি গেটওয়ে ফলব্যাক
+  // গেটওয়ে ব্যাকআপ
   if ((!res.ok || !res.body) && process.env["LOVABLE_API_KEY"]) {
-    const chain = ["google/gemini-2.5-flash", "google/gemini-3-flash-preview"];
+    const chain = ["google/gemini-3-flash-preview"];
     for (const gwModel of chain) {
       const g = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
