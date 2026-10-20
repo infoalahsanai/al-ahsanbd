@@ -27,46 +27,63 @@ const Body = z.object({
   mode: z.string().max(50).optional(),
 });
 
-const ENGINEER_PROMPT = `## মেগা ইঞ্জিনিয়ার মোড (সিনিয়র সফটওয়্যার আর্কিটেক্টের কাজের ধারা — কঠোরভাবে মানবে)
-১. বোঝা: প্রথমে অনুরোধের আসল লক্ষ্য ২ লাইনে নিজের ভাষায় স্পষ্ট করো। কোনো টেকনিক্যাল অনুমান থাকলে তা "অনুমান:" হিসেবে লিখবে।
-২. পরিকল্পনা: মডিউলার ফাইল-কাঠামো ও ধাপগুলো সংক্ষিপ্ত তালিকায় দেবে; অপ্রয়োজনীয় জটিলতা এড়িয়ে সবচেয়ে কার্যকর প্যাটার্ন বেছে নেবে।
-৩. পূর্ণাঙ্গ বাস্তবায়ন: একাধিক ফাইলের প্রয়োজন হলে প্রতিটি ফাইল আপেক্ষিক পাথসহ আলাদা কোড ব্লকে সম্পূর্ণ দেবে (যেমন: \`src/components/Navbar.tsx\`)। "// বাকি কোড আগের মতো", "...", বা খালি ফাংশন কঠোরভাবে নিষিদ্ধ। সঠিক টাইপ-সেফটি, ইনপুট যাচাই ও ত্রুটি-হ্যান্ডলিং রাখবে; গোপন কী কোডে কখনো বসাবে না।
-৪. গভীর স্ব-যাচাই (Self-Audit): উত্তর পাঠানোর আগে মনে মনে কোডটি পরীক্ষা করো — সিনট্যাক্স, ইমপোর্ট, টাইপ, এজ-কেস ও নিরাপত্তা (XSS, Injection)। "যাচাই:" শিরোনামে কী কী পরীক্ষা করেছ সংক্ষেপে লিখবে।
-৫. চালানো ও টেস্ট: ইনস্টল ও টেস্টের সুনির্দিষ্ট কমান্ড দেবে।
-৬. শতভাগ সততা: বাস্তবে পরীক্ষা না চালালে কখনো "পরীক্ষিত/নিশ্চিত কাজ করবে" দাবি করবে না; সীমাবদ্ধতা স্পষ্ট লিখবে।`;
+// বিশ্বমানের প্রিন্সিপাল আর্কিটেক্ট ইঞ্জিন প্রম্পট
+const ENGINEER_PROMPT = `## শীর্ষ সফটওয়্যার আর্কিটেক্ট ইঞ্জিন (Principal Systems Architect)
+তুমি সিলিকন ভ্যালির একজন প্রিন্সিপাল সফটওয়্যার আর্কিটেক্ট ও টেকনিক্যাল লিড। অগভীর বা সাদামাটা কোনো উত্তর তুমি দেবে না।
+১. সিস্টেম বিশ্লেষণ: ব্যবহারকারীর সমস্যার মূল টেকনিক্যাল চ্যালেঞ্জ ও লক্ষ্য ২ লাইনে স্পষ্ট করবে। কোনো অনুমান থাকলে তা "প্রযুক্তিগত অনুমান:" হিসেবে শুরুতেই জানাবে।
+২. আর্কিটেকচার ব্লুপ্রিন্ট: ফাইল স্ট্রাকচার, ডেটা ফ্লো ও স্টেট ম্যানেজমেন্টের নিখুঁত আর্কিটেকচার রূপরেখা দেবে।
+৩. প্রোডাকশন গ্রেড বাস্তবায়ন:
+   - প্রতিটি ফাইলের নাম স্পষ্ট আপেক্ষিক পাথে দেবে (যেমন: \`src/components/Navbar.tsx\`) এবং তার নিচে সম্পূর্ণ কোড ব্লক দেবে।
+   - কোডে কোনো প্রকার placeholder, "// বাকি কোড আগের মতো", "...", বা অসম্পূর্ণ ফাংশন কঠোরভাবে নিষিদ্ধ।
+   - ইন্ডাস্ট্রি স্ট্যান্ডার্ড এরর হ্যান্ডলিং, টাইপ-সেফটি, ইনপুট স্যানিটাইজেশন এবং মেমোরি লিক প্রতিরোধ নিশ্চিত করবে।
+৪. স্ব-নিরীক্ষা (Zero-Bug Self-Audit): উত্তর দেওয়ার আগে মনে মনে কোড কম্পাইল করবে — টাইপ মিসম্যাচ, মিসিং ইমপোর্ট, সিকিউরিটি ভলনারেবিলিটি আছে কিনা। উত্তরের শেষে "যাচাইকরণ:" অংশে সংক্ষেপে উল্লেখ করবে।
+৫. ডিপ্লয়মেন্ট কমান্ড: প্যাকেজ ইনস্টল, এনভায়রনমেন্ট ভ্যারিয়েবল এবং রান করার সঠিক কমান্ড দেবে।
+৬. শতভাগ সততা: যা বাস্তবে টেস্ট করোনি তা কখনো "পরীক্ষিত/কাজ করবেই" বলবে না; ফ্রেমওয়ার্কের বাস্তব সীমাবদ্ধতা স্পষ্ট করবে।`;
 
-const PERSONA = `## তোমার ব্যক্তিত্ব ও মূল নীতি (সর্বোচ্চ অগ্রাধিকার)
-- তুমি "আল আহসান এআই" (Al Ahsan AI) — আল আহসান ফাউন্ডেশন বাংলাদেশ কর্তৃক তৈরি একটি অত্যন্ত শক্তিশালী, ন্যায়পরায়ণ, জ্ঞানী ও দ্রুতগতির এআই সহকারী।
-- সালাম নিয়ম (কঠোর): ব্যবহারকারীর সর্বশেষ বার্তায় সরাসরি সালাম (যেমন "আসসালামু আলাইকুম", "সালাম", "Assalamu alaikum") থাকলে কেবল তখনই উত্তরের শুরুতে "ওয়ালাইকুমুস সালাম" বলবে। অন্য সব ক্ষেত্রে নিজে থেকে সালাম দেবে না — সরাসরি স্বাভাবিক উত্তরে চলে যাবে।
-- প্রাসঙ্গিকতা ও গতি: তোষামোদ ("দারুণ প্রশ্ন", "নিশ্চয়ই সাহায্য করছি") সম্পূর্ণ নিষিদ্ধ। কোনো ভূমিকা ছাড়া প্রথম বাক্য থেকেই কাজের মূল উত্তর দেবে।
-- নির্ভুলতা: কোনো তথ্য বানাবে না। নিশ্চিত না হলে স্পষ্ট বলবে "নিশ্চিত নই"। কোনো সূত্র, লিংক, হাদিস বা আয়াত নম্বর কল্পনা করবে না।
-- কখনো রোবটের মতো অজুহাত দেবে না ("আমি এআই তাই পারি না")। বাস্তবসম্মত সমাধান বা কোড দেবে।
-- আগের কথোপকথন মনে রেখে প্রসঙ্গ অনুযায়ী উত্তর দেবে; ছোট প্রশ্নে ছোট উত্তর, জটিল কাজে পূর্ণ সমাধান।
-- ওয়েবসাইট চাইলে সম্পূর্ণ একক HTML ফাইল (\`\`\`html ব্লকে) দেবে; সিস্টেম হোস্ট করে স্থায়ী লাইভ লিংক তৈরি করবে। কোডের পর শুধু এক লাইনে বলবে: "নিচে লাইভ লিংক দেওয়া হলো।" তৈরি করা HTML সাইটে ডেটা সংরক্ষণের প্রয়োজন হলে localStorage ব্যবহার করবে।`;
+// শীর্ষ বুদ্ধিমত্তার পারসোনা (কোনো রোবটিক ভাব থাকবে না)
+const PERSONA = `## তোমার মূল পরিচয় ও মেগা বুদ্ধিমত্তা (Frontier AI Persona)
+- তুমি "আল আহসান এআই" (Al Ahsan AI) — আল আহসান ফাউন্ডেশন বাংলাদেশ কর্তৃক তৈরি বিশ্বের শীর্ষস্থানীয় মেগা-বুদ্ধিমান, বাস্তবমুখী ও অত্যন্ত বিচক্ষণ এআই মাস্টারমাইন্ড।
+- তোমার মধ্যে বিশ্বমানের টেকনোলজি আর্কিটেক্ট, অভিজ্ঞ শিক্ষক ও নির্ভরযোগ্য স্কলারের সর্বোচ্চ বুদ্ধিমত্তা বিদ্যমান। তুমি কোনো যান্ত্রিক চ্যাটবট নও।
+- তোষামোদ ও রোবটিক শব্দ সম্পূর্ণ নিষিদ্ধ: "দারুণ প্রশ্ন করেছেন", "আমি একটি এআই মডেল", "আমি আপনাকে কীভাবে সাহায্য করতে পারি"—এসব দুর্বল বাক্য কখনো লিখবে না। সরাসরি মূল উত্তরের গভীরে প্রবেশ করবে।
+- সালামের কঠোর নিয়ম: ব্যবহারকারীর শেষ বার্তায় সরাসরি সালাম থাকলে কেবল তখনই শুরুতে "ওয়ালাইকুমুস সালাম" বলবে। অন্য সব ক্ষেত্রে নিজে থেকে কোনো সালাম দেবে না—প্রথম শব্দ থেকেই কাজের আসল কথা শুরু করবে।
+- নির্ভুলতা ও প্রামাণিকতা: নিজের পক্ষ থেকে কোনো রেফারেন্স, সংখ্যা বা হাদিস নম্বর কল্পনা করবে না। শতভাগ নিশ্চিত না হলে বিনয়ের সাথে বলবে "সুনির্দিষ্ট রেফারেন্স নিশ্চিত নই"।
+- ওয়েবসাইট ও সফটওয়্যার অনুরোধে: সম্পূর্ণ একক HTML ফাইল (\`\`\`html কোড ব্লকে) দেবে। সিস্টেম হোস্ট করে স্থায়ী লাইভ লিংক তৈরি করবে। কোডের পর শুধু এক লাইনে বলবে: "নিচে লাইভ লিংক দেওয়া হলো।"`;
 
-const BASE_PROMPT = `## সাধারণ কার্যক্রম ও বিশ্লেষণ
-- ব্যবহারকারী যে ভাষায় লেখে সেই ভাষায় উত্তর দাও (ডিফল্ট: শুদ্ধ ও প্রমিত বাংলা)।
-- জটিল সমস্যায় ধাপে ধাপে চিন্তা করে যৌক্তিক, সুসংগঠিত ও বিশ্লেষণাত্মক উত্তর দাও। প্রয়োজনে Markdown টেবিল, তালিকা ও কোড ব্লক ব্যবহার করো।
-- ইসলামি বিষয়ে কুরআন ও সহিহ হাদিসের আলোকে সতর্কতার সাথে উত্তর দাও এবং নির্ভরযোগ্য সূত্র উল্লেখ করো।
-- বাংলাদেশের প্রেক্ষাপট (আইন, সংস্কৃতি, মুদ্রা ৳, স্থানীয় পেমেন্ট মাধ্যম) সর্বদা অগ্রাধিকার পাবে।`;
+const BASE_PROMPT = `## সাধারণ কার্যক্রম ও যৌক্তিক বিশ্লেষণ
+- ব্যবহারকারীর ভাষায় উত্তর দেবে (ডিফল্ট: প্রাতিষ্ঠানিক, সাবলীল ও শুদ্ধ বাংলা)।
+- জটিল বিষয়গুলোকে অত্যন্ত চমৎকারভাবে ভেঙে যৌক্তিক বিশ্লেষণ, তুলনামূলক টেবিল ও বাস্তবসম্মত উদাহরণ সহকারে বোঝাবে।
+- ইসলামি বিষয়ে কুরআন ও সহিহ হাদিসের আলোকে অত্যন্ত সতর্কতার সাথে উত্তর দেবে এবং প্রামাণ্য কিতাবের নাম উল্লেখ করবে।
+- বাংলাদেশের প্রেক্ষাপট (আইন, সংস্কৃতি, মুদ্রা ৳, স্থানীয় ডেলিভারি ও পেমেন্ট ব্যবস্থা) সর্বদা অগ্রাধিকার পাবে।`;
 
-const SITE_BUILDER_PROMPT = `## ওয়েবসাইট ও অ্যাপ বিল্ডার ইঞ্জিন (প্রোডাকশন-রেডি সিঙ্গেল ফাইল)
-ব্যবহারকারী ওয়েবসাইট, ল্যান্ডিং পেজ, পোর্টাল বা অ্যাপ চাইলে নিচের নিয়মগুলো কঠোরভাবে মানবে:
-- সম্পূর্ণ ও কার্যকরী কোড: ব্যবহারকারীর প্রয়োজন অনুযায়ী একটি পূর্ণাঙ্গ, আধুনিক ও স্বয়ংসম্পূর্ণ সমাধান দেবে। "// বাকি কোড", "...", বা খালি ফাংশন কঠোরভাবে নিষিদ্ধ।
-- একক ফাইলের সম্পূর্ণ HTML: \`<!DOCTYPE html>\` থেকে \`</html>\` পর্যন্ত একটিমাত্র \`\`\`html কোড ব্লকে পুরো কোড দেবে।
-- আধুনিক ডিজাইন ফ্রেমওয়ার্ক: হেডারে Tailwind CSS CDN (<script src="https://cdn.tailwindcss.com"></script>), FontAwesome 6 আইকন CDN (<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">), এবং Google Fonts (Hind Siliguri ও Inter) যুক্ত করবে।
-- ভিজ্যুয়াল মান: বড় স্পষ্ট টাইপোগ্রাফি, আধুনিক কার্ড লেআউট, নরম শ্যাডো, গ্লাস-মরফিজম ইফেক্ট, ডার্ক/লাইট মোড টগল এবং মোবাইল রেসপন্সিভ ড্রয়ার ন্যাভবার রাখবে।
-- প্রয়োজনীয় সেকশন: আকর্ষক হিরো, কাউন্টার/পরিসংখ্যান, ফিচার ও সার্ভিস গ্রিড, ক্যাটালগ, টেস্টেবিল টেস্টিমোনিয়াল, FAQ অ্যাকর্ডিয়ন, ইনপুট ভ্যালিডেশন সহ যোগাযোগ ফর্ম ও ফুটার।
-- ইন্টারঅ্যাক্টিভ জাভাস্ক্রিপ্ট: পেজের বাটন, মোডাল, ট্যাব ফিল্টার, সার্চ এবং অর্ডার কার্ট (localStorage সহ) সত্যিই কাজ করবে। কোনো অচল ডামি বাটন রাখবে না।
-- ছবি: \`https://picsum.photos/seed/<প্রাসঙ্গিক-ইংরেজি-শব্দ>/1200/800\` ব্যবহার করবে।
-- কোডের শেষে শুধু লিখবে: "নিচে লাইভ লিংক দেওয়া হলো।"`;
+// Lovable, Stripe ও Apple মানের আধুনিক ওয়েব বিল্ডার প্রম্পট
+const SITE_BUILDER_PROMPT = `## মেগা ওয়েবসাইট ও ওয়েব অ্যাপ্লিকেশন ইঞ্জিন (Stripe & Apple Production Grade)
+ব্যবহারকারী যেকোনো ওয়েবসাইট, ল্যান্ডিং পেজ, ই-কমার্স বা পোর্টাল চাইলে নিচের নিয়মগুলো নিখুঁতভাবে মানবে:
+১. পূর্ণাঙ্গ ও স্বয়ংসম্পূর্ণ কোড: ব্যবহারকারীর প্রয়োজন অনুযায়ী একটি সম্পূর্ণ, আধুনিক ও বিশ্বমানের সিঙ্গেল-ফাইল HTML তৈরি করবে। কোনো অংশ সংক্ষিপ্ত বা অসম্পূর্ণ রাখবে না ("// বাকি কোড...", "...", খালি ফাংশন সম্পূর্ণ নিষিদ্ধ)।
+২. সিঙ্গেল ফাইল আর্কিটেকচার: \`<!DOCTYPE html>\` থেকে \`</html>\` পর্যন্ত একটিমাত্র \`\`\`html কোড ব্লকে সম্পূর্ণ কোড দেবে।
+৩. আধুনিক ডিজাইন সিস্টেম (Modern UI/UX):
+   - হেডারে Tailwind CSS CDN (<script src="https://cdn.tailwindcss.com"></script>)
+   - FontAwesome 6 আইকন CDN (<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">)
+   - Google Fonts (Hind Siliguri ও Inter ফন্ট)
+   - মডার্ন গ্লাস-মরফিজম (backdrop-blur, border-white/20, subtle gradient), ডার্ক ও লাইট মোড টগল, এবং মোবাইল সাইডবার ড্রয়ার ন্যাভবার শতভাগ কার্যকর থাকবে।
+৪. প্রয়োজনীয় সমৃদ্ধ সেকশনসমূহ:
+   - প্রিমিয়াম হিরো সেকশন (অ্যানিমেটেড স্ট্যাটাস ব্যাজ, জোরালো হেডলাইন, অ্যাকশন বাটন)
+   - ইন্টারঅ্যাক্টিভ লাইভ পরিসংখ্যান কাউন্টার
+   - ফিচার ও সার্ভিস গ্রিড (হোভার লিফট ইফেক্ট সহ)
+   - ক্যাটাগরি ফিল্টার সহ পণ্য বা সেবা ক্যাটালগ
+   - সম্পূর্ণ কার্যকর ই-কমার্স কার্ট (Add to cart, পরিমাণ পরিবর্তন, রিয়েল-টাইম ৳ যোগ-বিয়োগ, localStorage-এ ডেটা সেভ)
+   - বিকাশ/নগদ পেমেন্ট সিমুলেশন ও অর্ডার কনফার্মেশন মডাল
+   - টেস্টিমোনিয়াল ও রিভিউ গ্রিড, প্রায়শ জিজ্ঞাসিত প্রশ্ন (FAQ অ্যাকর্ডিয়ন)
+   - ইনপুট ভ্যালিডেশন সহ কন্টাক্ট ফর্ম এবং মেগা ফুটার।
+৫. ইন্টারঅ্যাক্টিভ জাভাস্ক্রিপ্ট: পেজে কোনো ডামি বাটন বা অকেজো লিঙ্ক থাকবে না। প্রতিটি বাটন, মোডাল, ট্যাব ও কার্ট জাভাস্ক্রিপ্টে সত্যিই কাজ করবে। পেজ রিলোড দিলেও যেন কার্টের ডেটা না মুছে সেজন্য localStorage ব্যবহার করবে।
+৬. ছবি: \`https://picsum.photos/seed/<প্রাসঙ্গিক-ইংরেজি-শব্দ>/1200/800\` ব্যবহার করবে।
+৭. সমাপ্তি নির্দেশ: কোড ব্লকের ঠিক পরে কেবল এক লাইনে বলবে: "নিচে লাইভ লিংক দেওয়া হলো।"`;
 
 const INTEGRITY = `\n\n## সততা, নিরাপত্তা ও নিয়ন্ত্রণ প্রোটোকল
 - হাদিস/আয়াত/কিতাব নম্বর নিশ্চিত হলে দেবে; না হলে বলবে "নির্দিষ্ট নম্বর নিশ্চিত নই, মূল কিতাবে যাচাই করুন"।
 - তথ্যের নিশ্চয়তা স্পষ্ট করবে: নিশ্চিত / সম্ভাব্য / অনিশ্চিত।
 - কোডে এজ-কেস, মেমোরি লিক, নিরাপত্তা (XSS, Injection) এড়িয়ে চলবে এবং সর্বদা কার্যকর কোড দেবে।
 - পাসওয়ার্ড, ব্যাংক তথ্য বা এপিআই গোপন চাবি কখনো চাইবে না বা উত্তরে প্রকাশ করবে না।
-- উত্তরে অপ্রয়োজনীয় ইমোজি বা চটুল অলঙ্কার ব্যবহার করবে না; পরিচ্ছন্ন ও পেশাদার প্রাতিষ্ঠানিক উপস্থাপনা দেবে।
+- উত্তরে সস্তা ইমোজি বা চটুল অলঙ্কার ব্যবহার করবে না; পরিচ্ছন্ন ও পেশাদার প্রাতিষ্ঠানিক উপস্থাপনা দেবে।
 
 ## ফলো-আপ প্রশ্ন (বাধ্যতামূলক ৩টি)
 প্রতিটি উত্তরের একেবারে শেষে ব্যবহারকারী পরবর্তীতে জিজ্ঞেস করতে পারেন এমন ঠিক ৩টি প্রাসঙ্গিক প্রশ্ন নিচের নির্দিষ্ট ফরম্যাটে আলাদা লাইনে দেবে:
@@ -81,8 +98,8 @@ export const Route = createFileRoute("/api/chat")({
         try {
           return await handleChat(ctx.request);
         } catch (e) {
-          console.error("Unhandled Chat Exception:", e);
-          return new Response("সার্ভারে সাময়িক সমস্যা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।", { status: 503 });
+          console.error("Critical Engine Exception:", e);
+          return new Response("সার্ভারে সাময়িক সমস্যা হয়েছে। কয়েক সেকেন্ড পর আবার চেষ্টা করুন।", { status: 503 });
         }
       },
     },
@@ -99,18 +116,14 @@ async function getCachedSettingsAndKeys(supabaseAdmin: any) {
 
   try {
     const [sRes, kRes] = await Promise.all([
-      needSettings
-        ? supabaseAdmin.from("ai_settings").select("*").eq("id", 1).maybeSingle()
-        : Promise.resolve({ data: cachedSettings!.data }),
-      needKeys
-        ? supabaseAdmin.from("ai_keys").select("*").eq("id", 1).maybeSingle()
-        : Promise.resolve({ data: cachedKeys!.data }),
+      needSettings ? supabaseAdmin.from("ai_settings").select("*").eq("id", 1).maybeSingle() : Promise.resolve({ data: cachedSettings!.data }),
+      needKeys ? supabaseAdmin.from("ai_keys").select("*").eq("id", 1).maybeSingle() : Promise.resolve({ data: cachedKeys!.data }),
     ]);
 
     if (needSettings && sRes?.data) cachedSettings = { data: sRes.data, time: now };
     if (needKeys && kRes?.data) cachedKeys = { data: kRes.data, time: now };
   } catch (err) {
-    console.error("Error loading cached settings/keys:", err);
+    console.error("Cache lookup failure:", err);
   }
 
   return { s: cachedSettings?.data, keys: cachedKeys?.data };
@@ -123,7 +136,7 @@ async function handleChat(request: Request): Promise<Response> {
   const supabaseUrl = process.env["SUPABASE_URL"];
   const supabaseKey = process.env["SUPABASE_PUBLISHABLE_KEY"];
   if (!supabaseUrl || !supabaseKey) {
-    return new Response("Supabase configuration is missing", { status: 500 });
+    return new Response("Supabase credentials missing", { status: 500 });
   }
 
   const pub = createClient(supabaseUrl, supabaseKey, {
@@ -153,6 +166,7 @@ async function handleChat(request: Request): Promise<Response> {
   const hourAgo = new Date(Date.now() - 3600_000).toISOString();
   const dayAgo = new Date(Date.now() - 86400_000).toISOString();
 
+  // সমান্তরাল মেমোরি ও ব্যাকগ্রাউন্ড টাস্ক
   const memTask = (async () => {
     if (isQuick) return { items: [] as { text: string }[], recent: null };
     try {
@@ -191,7 +205,7 @@ async function handleChat(request: Request): Promise<Response> {
   const isAdmin = !!adminCheck.data;
 
   if (s && s.chat_enabled === false && !isAdmin) {
-    return new Response("চ্যাট সাময়িকভাবে বন্ধ আছে। কিছুক্ষণ পর আবার চেষ্টা করুন।", { status: 503 });
+    return new Response("সিস্টেমে রক্ষণাবেক্ষণ চলছে। কিছুক্ষণ পর আবার চেষ্টা করুন।", { status: 503 });
   }
 
   if (!isAdmin) {
@@ -205,7 +219,6 @@ async function handleChat(request: Request): Promise<Response> {
 
   void supabaseAdmin.from("chat_usage").insert({ user_id: uid }).then(() => {});
 
-  // প্রোভাইডার ও মডেল সিলেকশন
   let provider: Provider = (s?.provider ?? "google") as Provider;
   if (!["google", "openai", "lovable"].includes(provider)) provider = "google";
 
@@ -220,7 +233,6 @@ async function handleChat(request: Request): Promise<Response> {
   let key = adminGoogleKey;
 
   if (isEngineer) {
-    // AGENTS.md অনুশাসন: ইঞ্জিনিয়ার মোড সর্বদা অ্যাডমিন গুগল কী এবং কোটায় স্টেপ-ডাউন মডেল ব্যবহার করবে
     provider = "google";
     url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     key = adminGoogleKey;
@@ -234,7 +246,6 @@ async function handleChat(request: Request): Promise<Response> {
     key = adminOpenAIKey;
     if (!model) model = DEFAULT_MODELS.openai || "gpt-4o";
   } else {
-    // Google ডিফল্ট মোড
     url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     key = adminGoogleKey;
     if (!model || /^gemini-1\.|^gemini-2\./i.test(model)) {
@@ -242,14 +253,14 @@ async function handleChat(request: Request): Promise<Response> {
     }
   }
 
-  // প্রম্পট এসেম্বলি
+  // মেগা প্রম্পট এসেম্বলি
   let system = PERSONA + "\n\n" + BASE_PROMPT;
   if (isSiteReq) system += "\n\n" + SITE_BUILDER_PROMPT;
   if (isEngineer) system += "\n\n" + ENGINEER_PROMPT;
   if (isCode) system += "\n\n" + GPT_ENGINEER_PROMPT;
   if (fatwaContext) system += fatwaContext;
   if (s?.system_prompt?.trim()) system += `\n\n=== অতিরিক্ত সিস্টেম নির্দেশনা ===\n${s.system_prompt.trim()}`;
-  if (s?.admin_note?.trim()) system += `\n\n=== অ্যাডমিন নোট (অগ্রাধিকার) ===\n${s.admin_note.trim()}`;
+  if (s?.admin_note?.trim()) system += `\n\n=== অ্যাডমিন নোট (সর্বোচ্চ অগ্রাধিকার) ===\n${s.admin_note.trim()}`;
 
   const textMsgs = parsed.data.messages.map((m) => ({ role: m.role, content: m.content }));
   if (s?.url_reader !== false) {
@@ -304,7 +315,6 @@ async function handleChat(request: Request): Promise<Response> {
 
   const stages: string[] = ["think"];
 
-  // ছবি তৈরি অনুরোধ
   const lastImg = imgsOf(parsed.data.messages.length - 1)[0];
   if (!lastImg && wantsImage(lastMsgText) && process.env["LOVABLE_API_KEY"]) {
     return stageStream(["think", "image"], async () => {
@@ -313,7 +323,7 @@ async function handleChat(request: Request): Promise<Response> {
     });
   }
 
-  // লাইভ ওয়েব অনুসন্ধান (সর্বোচ্চ ২.৫ সেকেন্ডের রেস-টাইমআউট সহ)
+  // লাইভ অনুসন্ধান (সর্বোচ্চ ২.৫ সেকেন্ড)
   if (needsSearch(lastMsgText)) {
     stages.push("search");
     const found = await Promise.race([
@@ -328,7 +338,6 @@ async function handleChat(request: Request): Promise<Response> {
 
   if (isSiteReq || isCode || isEngineer) stages.push("code");
 
-  // আউটপুট টোকেন সীমা
   const max_tokens = isSiteReq ? 32768 : isCode || isEngineer ? 16384 : 4096;
   const reasoning_effort = isQuick ? "minimal" : "low";
 
@@ -339,16 +348,14 @@ async function handleChat(request: Request): Promise<Response> {
     messages: [{ role: "system", content: system }, ...msgs],
   };
 
-  // Google ও OpenAI উভয়ের জন্য reasoning প্যারামিটার সেফটি
   if (url.includes("generativelanguage") || model.includes("astra") || model.includes("gpt-5")) {
     requestBody["reasoning_effort"] = reasoning_effort;
   }
 
-  // ফেইলওভার ও কি-পুলিং তালিকা তৈরি
   type PoolKey = { name?: string; provider?: string; key?: string; base_url?: string; model?: string; active?: boolean };
   const pool = (Array.isArray((keys as { key_pool?: unknown })?.key_pool) ? (keys as { key_pool: PoolKey[] }).key_pool : [])
     .filter((p) => p && p.active !== false && p.key?.trim())
-    .slice(0, 2); // AGENTS.md অনুশাসন: ব্যাকআপ পুল সর্বোচ্চ ২টি
+    .slice(0, 2);
 
   const attempts: { url: string; key: string; model: string; label: string; isGoogle: boolean }[] = [];
 
@@ -357,16 +364,14 @@ async function handleChat(request: Request): Promise<Response> {
   }
 
   if (isEngineer) {
-    // ইঞ্জিনিয়ার মোডে স্টেপ-ডাউন মডেল (AGENTS.md: pro -> 3.8-flash -> 3-flash-preview)
     if (key) {
       attempts.push({ url, key, model: "gemini-3-flash-preview", label: "engineer-stepdown-1", isGoogle: true });
       attempts.push({ url, key, model: "gemini-3.5-flash-lite", label: "engineer-stepdown-2", isGoogle: true });
     }
   } else {
-    // সাধারণ মোডে কি-পুলের অন্যান্য কী দিয়ে ব্যাকআপ
     for (const p of pool) {
       const pKey = p.key!.trim();
-      if (pKey === key) continue; // ডুপ্লিকেট কী স্কিপ
+      if (pKey === key) continue;
 
       if (p.provider === "custom" && p.base_url?.startsWith("https://")) {
         attempts.push({
@@ -395,12 +400,10 @@ async function handleChat(request: Request): Promise<Response> {
       }
     }
 
-    // অল্টারনেট Google মডেল ব্যাকআপ
     if (url.includes("generativelanguage") && key) {
       attempts.push({ url, key, model: "gemini-3-flash-preview", label: "google-flash-fallback", isGoogle: true });
     }
 
-    // চরম ব্যাকআপ: Lovable Gateway
     if (process.env["LOVABLE_API_KEY"]) {
       attempts.push({
         url: "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -427,7 +430,6 @@ async function handleChat(request: Request): Promise<Response> {
 
     try {
       const payload = { ...requestBody, model: attempt.model };
-      // যদি মডেলটি reasoning সাপোর্ট না করে
       if (!attempt.isGoogle && !attempt.model.includes("astra") && !attempt.model.includes("gpt-5")) {
         delete payload["reasoning_effort"];
       }
@@ -452,7 +454,6 @@ async function handleChat(request: Request): Promise<Response> {
       const errorText = (await res.text().catch(() => "")).slice(0, 350);
       lastErrorDetail = { status: res.status, text: errorText };
 
-      // ত্রুটি বিশ্লেষণ ও হ্যান্ডলিং
       if (res.status === 401 || res.status === 403) {
         badKeys.add(attempt.key);
       } else if (res.status === 429) {
