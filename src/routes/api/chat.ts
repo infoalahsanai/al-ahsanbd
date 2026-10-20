@@ -360,8 +360,8 @@ async function handleChat(request: Request): Promise<Response> {
           .filter((p) => p && p.active !== false && p.key?.trim());
         const attempts: { url: string; key: string; model: string; label: string }[] = [{ url, key, model, label: "primary" }];
                 // ইঞ্জিনিয়ার মোড: ৩.৮ ফ্ল্যাশের কোটা না থাকলে একই Google কী দিয়ে ৩ ফ্ল্যাশ প্রিভিউতে ফলব্যাক
-        if (isEngineer && url.includes("generativelanguage"))
-          for (const m of ["gemini-3-flash-preview"]) attempts.push({ url, key, model: m, label: `engineer-${m}` });
+                if (isEngineer && url.includes("generativelanguage"))
+          for (const m of ["gemini-3-flash-preview", "gemini-3.5-flash-lite"]) attempts.push({ url, key, model: m, label: `engineer-${m}` });
         for (const p of pool) {
           if (p.provider === provider && p.key!.trim() !== key) attempts.push({ url, key: p.key!.trim(), model, label: p.name || provider });
         }
