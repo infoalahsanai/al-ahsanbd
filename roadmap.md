@@ -15,3 +15,4 @@
 - [x] Phase 17/35: /profile page — account info, memories view/delete, delete all chats
 - [x] Phase 18: admin panel (already existed)
 - [ ] Phase 19–22: security, performance, mobile, regression
+- [x] ইঞ্জিনিয়ার মোড (Google কী) — লাইভ টেস্ট 200; Pro ও 3.8-flash এই কী-তে কোটা নেই (429), উত্তর দিচ্ছে gemini-3-flash-preview

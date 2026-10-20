@@ -14,3 +14,4 @@
 - Backup API key pool is capped at 2 and deduplicated on save; keys are only read server-side for AI calls.
 - Adapt gpt-engineer as typed prompt/routing and safe fenced-file extraction; never bundle or execute its Python CLI in the web runtime.
 - Multi-file outputs are downloadable projects, not automatically concatenated or published websites; the workspace exports validated relative paths and sends edited sources through the existing chat.
+- Chat "engineer" mode: client sends `mode:"engineer"`; server forces the admin Google key and steps down Google models (pro → 3.8-flash → 3-flash-preview) on quota errors, plus a plan/implement/self-check prompt — keeps it Google-key-only as the owner requires.
