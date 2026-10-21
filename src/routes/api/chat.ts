@@ -145,7 +145,7 @@ const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export const GOOGLE_CHAINS: Record<TaskKind, string[]> = {
-  quick: ["gemini-3.1-flash-lite", "gemini-3-flash", "gemini-3-flash-preview"],
+  quick: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3-flash-preview"],
   general: ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"],
   code: ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"],
   // মালিকের নির্দেশ: ইঞ্জিনিয়ার মোড শুধু গুগল কী — Pro → 3.8 Flash → 3 Flash Preview
