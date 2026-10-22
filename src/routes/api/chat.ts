@@ -145,11 +145,11 @@ const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export const GOOGLE_CHAINS: Record<TaskKind, string[]> = {
-  quick: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3-flash-preview"],
-  general: ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"],
-  code: ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"],
-  // মালিকের নির্দেশ: ইঞ্জিনিয়ার মোড শুধু গুগল কী — Pro → 3.8 Flash → 3 Flash Preview
-  engineer: ["gemini-3.1-pro-preview", "gemini-3.8-flash", "gemini-3-flash-preview"],
+  quick: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3-flash-preview"],
+  general: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.8-flash", "gemini-3-flash-preview"],
+  code: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.8-flash", "gemini-3-flash-preview"],
+  // মালিকের নির্দেশ: ইঞ্জিনিয়ার মোড দ্রুত Pro ও Flash চেইন
+  engineer: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-3.1-pro-preview", "gemini-3.8-flash"],
 };
 
 const GATEWAY_CHAINS: Record<TaskKind, string[]> = {
@@ -176,8 +176,8 @@ export function tokenBudget(kind: TaskKind, site: boolean): number {
 
 // [#2][#41] প্রথম অক্ষর আসার সময়সীমা — এর মধ্যে না এলে পরের মডেলে সুইচ
 export function firstTokenBudget(kind: TaskKind, pass: 1 | 2): number {
-  if (pass === 2) return 25000; // [#49] শেষ চেষ্টায় ধৈর্যশীল টাইমআউট
-  return kind === "quick" || kind === "general" ? 3500 : 9000;
+  if (pass === 2) return 8000; // [#49] শেষ চেষ্টায় দ্রুত ফেইলওভার
+  return kind === "quick" || kind === "general" ? 2200 : 4500;
 }
 
 // ---------------------------------------------------------------------
@@ -509,7 +509,7 @@ async function handleChat(request: Request): Promise<Response> {
         if (shouldSearch) stage("search");
         const [web, found] = await Promise.all([
           wantsUrl ? readUrls(lastMsgText).catch(() => "") : Promise.resolve(""),
-          shouldSearch ? withTimeout(cachedSearch(lastMsgText), 4500, { text: "", count: 0 }) : Promise.resolve({ text: "", count: 0 }),
+          shouldSearch ? withTimeout(cachedSearch(lastMsgText), 2200, { text: "", count: 0 }) : Promise.resolve({ text: "", count: 0 }),
         ]);
         if (web) {
           const last = textMsgs[textMsgs.length - 1]!;
