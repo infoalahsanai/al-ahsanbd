@@ -220,8 +220,8 @@ function cacheSet<V>(map: Map<string, V>, k: string, v: V, max = 100) {
 
 async function getCachedSettingsAndKeys(supabaseAdmin: any) {
   const now = Date.now();
-  const needSettings = !cachedSettings || now - cachedSettings.time > 45_000;
-  const needKeys = !cachedKeys || now - cachedKeys.time > 45_000;
+  const needSettings = !cachedSettings || now - cachedSettings.time > 10_000;
+  const needKeys = !cachedKeys || now - cachedKeys.time > 10_000;
   try {
     const [sRes, kRes] = await Promise.all([
       needSettings ? supabaseAdmin.from("ai_settings").select("*").eq("id", 1).maybeSingle() : Promise.resolve({ data: cachedSettings!.data }),
@@ -358,16 +358,29 @@ async function handleChat(request: Request): Promise<Response> {
     if (!attempts.some((x) => x.url === a.url && x.key === a.key && x.model === a.model)) attempts.push(a);
   };
   const googleChain = [...GOOGLE_CHAINS[kind]];
-  if (!isEngineer && adminProvider === "google" && adminModel.startsWith("gemini-3")) googleChain.unshift(adminModel); // [#50]
+  if (adminProvider === "google" && adminModel) {
+    // [#50] অ্যাডমিন যে মডেলই বেছে বা টাইপ করে দিন না কেন, তা গুগল চেইনের শীর্ষে যাবে
+    googleChain.unshift(adminModel);
+  }
   const rotatedGoogle = rotate(googleKeys, rrCounter++); // [#4] রাউন্ড-রবিন
 
   if (isEngineer) {
     for (const model of googleChain) for (const key of rotatedGoogle) add({ url: GOOGLE_URL, key, model, label: `google:${model}`, google: true });
   } else {
-    // [#50] ব্যবহারকারী/অ্যাডমিন গেটওয়ে মডেল বেছে নিলে সেটি আগে
-    const preferGateway = gatewayKey && (userModel || adminProvider === "lovable");
-    if (preferGateway) add({ url: GATEWAY_URL, key: gatewayKey, model: userModel || adminModel || GATEWAY_CHAINS[kind][0]!, label: "gateway:preferred", google: false });
-    if (adminProvider === "openai" && openaiKey) add({ url: OPENAI_URL, key: openaiKey, model: adminModel || "gpt-4o", label: "openai:admin", google: false });
+    // [#50] অ্যাডমিন প্যানেলে নির্ধারিত প্রোভাইডার ও মডেলের সর্বোচ্চ অগ্রাধিকার
+    if (adminProvider === "lovable" && gatewayKey) {
+      add({ url: GATEWAY_URL, key: gatewayKey, model: adminModel || userModel || GATEWAY_CHAINS[kind][0]!, label: "gateway:admin", google: false });
+    } else if (adminProvider === "openai" && openaiKey) {
+      add({ url: OPENAI_URL, key: openaiKey, model: adminModel || "gpt-5.5", label: "openai:admin", google: false });
+    } else if (adminProvider === "google" && adminModel) {
+      for (const key of rotatedGoogle) add({ url: GOOGLE_URL, key, model: adminModel, label: `google:admin:${adminModel}`, google: true });
+    }
+
+    // ব্যবহারকারী যদি চ্যাট ড্রপডাউন থেকে নির্দিষ্ট কোনো গেটওয়ে মডেল বেছে থাকেন
+    if (userModel && gatewayKey) {
+      add({ url: GATEWAY_URL, key: gatewayKey, model: userModel, label: "gateway:user", google: false });
+    }
+
     // [#3] ক্যাটাগরি অনুযায়ী গুগল চেইন, প্রতিটি মডেল সব কীতে ঘুরিয়ে
     for (const model of googleChain) for (const key of rotatedGoogle) add({ url: GOOGLE_URL, key, model, label: `google:${model}`, google: true });
     for (const p of pool) {
@@ -443,11 +456,36 @@ async function handleChat(request: Request): Promise<Response> {
         }
 
         // ---- সিস্টেম প্রম্পট ----
-        let system = PERSONA + "\n\n" + BASE_PROMPT;
+        let system = "";
+
+        // [#50 ১ম বাক্স]: অ্যাডমিন নোট — সর্বোচ্চ অগ্রাধিকার (Absolute Highest Priority)
+        // অ্যাডমিন প্যানেলে বলা আছে: "এখানে যা লিখবেন, এআই সবার আগে সেটাই মানবে।"
+        if (s?.admin_note?.trim()) {
+          system += `### [অ্যাডমিন নোট — সর্বোচ্চ অগ্রাধিকার ও অবশ্য পালনীয় নির্দেশনা]\nনিচের নির্দেশনাটি সিস্টেম অ্যাডমিনের প্রত্যক্ষ আদেশ। অন্য যেকোনো সাধারণ নির্দেশনার উপরে এই নির্দেশনা কার্যকর থাকবে:\n${s.admin_note.trim()}\n\n`;
+        }
+
+        // [#50 ২য় বাক্স]: এআই-এর মূল পরিচয় ও দক্ষতা (ঐচ্ছিক)
+        // অ্যাডমিন প্যানেলে বলা আছে: "খালি রাখলে আগে থেকে তৈরি শক্তিশালী নির্দেশনা চলবে। এখানে লিখলে সেটি পুরোপুরি বদলে আপনার লেখা চলবে।"
+        if (s?.system_prompt?.trim()) {
+          system += `### [অ্যাডমিন নির্ধারিত এআই পরিচয় ও সিস্টেম নির্দেশনা]\n${s.system_prompt.trim()}`;
+        } else {
+          system += PERSONA + "\n\n" + BASE_PROMPT;
+        }
+
         if (isSiteReq && s?.site_builder !== false) system += "\n\n" + SITE_BUILDER_PROMPT;
         if (isEngineer) system += "\n\n" + ENGINEER_PROMPT;
         if (isCode || isSiteReq || isEngineer) system += "\n\n" + GPT_ENGINEER_PROMPT + CODE_RULES;
         system += ISLAMIC_GUARD + STYLE_RULES;
+
+        // [#50 চিন্তার গতি ও গভীরতা স্টাইল]
+        const adminReasoning = String(s?.reasoning_effort ?? "low");
+        if (adminReasoning === "low") {
+          system += "\n\n[চিন্তার গতি ও স্টাইল (অ্যাডমিন কনফিগ: দ্রুত)]: দ্রুত, স্পষ্ট ও সরাসরি কার্যকরী উত্তর দাও। অপ্রয়োজনীয় দীর্ঘ ভূমিকা পরিহার করো।";
+        } else if (adminReasoning === "medium") {
+          system += "\n\n[চিন্তার গতি ও স্টাইল (অ্যাডমিন কনফিগ: ভারসাম্যপূর্ণ)]: উত্তরের গতি ও ব্যাখ্যার গভীরতার মধ্যে ভারসাম্য বজায় রাখো।";
+        } else if (adminReasoning === "high" || adminReasoning === "xhigh") {
+          system += "\n\n[চিন্তার গতি ও স্টাইল (অ্যাডমিন কনফিগ: গভীর চিন্তা)]: প্রতিটি প্রশ্ন পুঙ্খানুপুঙ্খভাবে চিন্তা করো, অন্তর্নিহিত যুক্তি যাচাই করো এবং সর্বোচ্চ বুদ্ধিমত্তা প্রয়োগ করে সমাধান দাও।";
+        }
 
         // [#15] বাংলাদেশ সময় ও তিন ক্যালেন্ডার
         const now = new Date();
@@ -462,8 +500,7 @@ async function handleChat(request: Request): Promise<Response> {
         if (fatwaContext) system += fatwaContext;
         if (mem.items.length) system += `\n\n=== ব্যবহারকারী সম্পর্কে সংরক্ষিত তথ্য (স্মৃতি) ===\n${mem.items.map((m) => "- " + m.text).join("\n")}`;
         if (mem.recent.length) system += `\n\n=== পূর্ববর্তী প্রাসঙ্গিক প্রশ্ন ===\n${[...mem.recent].reverse().map((r) => "- " + String(r.content).slice(0, 200).replace(/\s+/g, " ")).join("\n")}`;
-        if (s?.system_prompt?.trim()) system += `\n\n=== অতিরিক্ত সিস্টেম নির্দেশনা (অ্যাডমিন) ===\n${s.system_prompt.trim()}`;
-        if (s?.admin_note?.trim()) system += `\n\n=== অ্যাডমিন নোট (সর্বোচ্চ অগ্রাধিকার) ===\n${s.admin_note.trim()}`;
+        if (s?.admin_note?.trim()) system += `\n\n[স্মরণীয়]: অ্যাডমিন নোটের নির্দেশনা সর্বদা অটুট ও সর্বাগ্রে কার্যকর রাখতে হবে।`;
         if (isAdmin) system += `\n\n[সেশন]: ব্যবহারকারী সিস্টেমের ভেরিফাইড অ্যাডমিন।`;
 
         // [#13] ব্যবহারকারীর দেওয়া লিংক পড়া + [#11][#18] অটো-সার্চ — সমান্তরালে
@@ -501,10 +538,11 @@ async function handleChat(request: Request): Promise<Response> {
           };
         });
 
-        const basePayload = {
+        const basePayload: Record<string, unknown> = {
           stream: true,
           temperature: isSiteReq ? 0.4 : 0.2, // [#8]
           max_tokens: tokenBudget(kind, isSiteReq), // [#44]
+          reasoning_effort: adminReasoning,
           messages: [{ role: "system", content: system }, ...msgs],
         };
 
@@ -607,7 +645,14 @@ async function tryAttempt(a: Attempt, base: Record<string, unknown>, kind: TaskK
   clientSignal.addEventListener("abort", onClient, { once: true });
   const timer = setTimeout(() => abort.abort(), budgetMs);
   const payload: Record<string, unknown> = { ...base, model: a.model };
-  if (a.google) payload["reasoning_effort"] = kind === "quick" || kind === "general" ? "minimal" : "low";
+  const effort = String(base["reasoning_effort"] || "low");
+  if (a.google) {
+    const googleEffortMap: Record<string, string> = { low: "minimal", medium: "low", high: "medium", xhigh: "high" };
+    payload["reasoning_effort"] = googleEffortMap[effort] || (kind === "quick" || kind === "general" ? "minimal" : "low");
+  } else if (a.url === OPENAI_URL || a.url === GATEWAY_URL) {
+    const openaiEffortMap: Record<string, string> = { low: "low", medium: "medium", high: "medium", xhigh: "high" };
+    payload["reasoning_effort"] = openaiEffortMap[effort] || "low";
+  }
   if (a.url === OPENAI_URL && /^gpt-5|^o\d/.test(a.model)) delete payload["temperature"];
   try {
     const res = await fetch(a.url, {
