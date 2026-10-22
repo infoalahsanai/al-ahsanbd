@@ -145,11 +145,11 @@ const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export const GOOGLE_CHAINS: Record<TaskKind, string[]> = {
-  quick: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3-flash-preview"],
-  general: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.8-flash", "gemini-3-flash-preview"],
-  code: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.8-flash", "gemini-3-flash-preview"],
-  // মালিকের নির্দেশ: ইঞ্জিনিয়ার মোড দ্রুত Pro ও Flash চেইন
-  engineer: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-3.1-pro-preview", "gemini-3.8-flash"],
+  quick: ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest", "gemini-3.1-flash-lite", "gemini-3.8-flash"],
+  general: ["gemini-2.0-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash-lite", "gemini-3.8-flash", "gemini-3-flash-preview"],
+  code: ["gemini-2.0-flash", "gemini-1.5-pro-latest", "gemini-3.8-flash", "gemini-3-flash-preview"],
+  // ইঞ্জিনিয়ার মোড: স্থিতিশীল প্রো ও দ্রুত ফ্ল্যাশ চেইন
+  engineer: ["gemini-2.0-flash", "gemini-1.5-pro-latest", "gemini-3.1-pro-preview", "gemini-3.8-flash"],
 };
 
 const GATEWAY_CHAINS: Record<TaskKind, string[]> = {
