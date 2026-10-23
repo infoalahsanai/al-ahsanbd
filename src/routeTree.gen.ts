@@ -20,7 +20,6 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedSalatRouteImport } from './routes/_authenticated/salat'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
-import { Route as ApiIntegrationsRouteImport } from './routes/api/integrations'
 import { Route as ApiMemoryRouteImport } from './routes/api/memory'
 import { Route as ApiPagesRouteImport } from './routes/api/pages'
 import { Route as ApiSettingsRouteImport } from './routes/api/settings'
@@ -81,11 +80,6 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiIntegrationsRoute = ApiIntegrationsRouteImport.update({
-  id: '/api/integrations',
-  path: '/api/integrations',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiMemoryRoute = ApiMemoryRouteImport.update({
   id: '/api/memory',
   path: '/api/memory',
@@ -123,7 +117,6 @@ export interface FileRoutesByFullPath {
   '/salat': typeof AuthenticatedSalatRoute
   '/api/chat': typeof ApiChatRoute
   '/api/health': typeof ApiHealthRoute
-  '/api/integrations': typeof ApiIntegrationsRoute
   '/api/memory': typeof ApiMemoryRoute
   '/api/pages': typeof ApiPagesRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -141,7 +134,6 @@ export interface FileRoutesByTo {
   '/salat': typeof AuthenticatedSalatRoute
   '/api/chat': typeof ApiChatRoute
   '/api/health': typeof ApiHealthRoute
-  '/api/integrations': typeof ApiIntegrationsRoute
   '/api/memory': typeof ApiMemoryRoute
   '/api/pages': typeof ApiPagesRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -161,7 +153,6 @@ export interface FileRoutesById {
   '/_authenticated/salat': typeof AuthenticatedSalatRoute
   '/api/chat': typeof ApiChatRoute
   '/api/health': typeof ApiHealthRoute
-  '/api/integrations': typeof ApiIntegrationsRoute
   '/api/memory': typeof ApiMemoryRoute
   '/api/pages': typeof ApiPagesRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -181,7 +172,6 @@ export interface FileRouteTypes {
     | '/salat'
     | '/api/chat'
     | '/api/health'
-    | '/api/integrations'
     | '/api/memory'
     | '/api/pages'
     | '/api/settings'
@@ -199,7 +189,6 @@ export interface FileRouteTypes {
     | '/salat'
     | '/api/chat'
     | '/api/health'
-    | '/api/integrations'
     | '/api/memory'
     | '/api/pages'
     | '/api/settings'
@@ -218,7 +207,6 @@ export interface FileRouteTypes {
     | '/_authenticated/salat'
     | '/api/chat'
     | '/api/health'
-    | '/api/integrations'
     | '/api/memory'
     | '/api/pages'
     | '/api/settings'
@@ -234,7 +222,6 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiHealthRoute: typeof ApiHealthRoute
-  ApiIntegrationsRoute: typeof ApiIntegrationsRoute
   ApiMemoryRoute: typeof ApiMemoryRoute
   ApiPagesRoute: typeof ApiPagesRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
@@ -321,13 +308,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/integrations': {
-      id: '/api/integrations'
-      path: '/api/integrations'
-      fullPath: '/api/integrations'
-      preLoaderRoute: typeof ApiIntegrationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/memory': {
       id: '/api/memory'
       path: '/api/memory'
@@ -391,7 +371,6 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   ApiChatRoute: ApiChatRoute,
   ApiHealthRoute: ApiHealthRoute,
-  ApiIntegrationsRoute: ApiIntegrationsRoute,
   ApiMemoryRoute: ApiMemoryRoute,
   ApiPagesRoute: ApiPagesRoute,
   ApiSettingsRoute: ApiSettingsRoute,

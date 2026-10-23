@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Save, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/lib/admin";
-import { GOOGLE_MODELS, LOVABLE_MODELS, OPENAI_MODELS, GROQ_MODELS, OPENROUTER_MODELS, ALL_AVAILABLE_MODELS, type Provider } from "@/lib/models";
+import { GOOGLE_MODELS, LOVABLE_MODELS, OPENAI_MODELS, type Provider } from "@/lib/models";
 import { Logo } from "@/components/Logo";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -66,7 +66,7 @@ function AdminPage() {
   if (!s) return <div className="min-h-screen bg-background p-8 text-muted-foreground">লোড হচ্ছে…</div>;
 
   const set = <K extends keyof S>(k: K, v: S[K]) => setS({ ...s, [k]: v });
-  const listFor = (p: Provider) => p === "google" ? GOOGLE_MODELS : p === "openai" ? OPENAI_MODELS : p === "groq" ? GROQ_MODELS : p === "openrouter" ? OPENROUTER_MODELS : LOVABLE_MODELS;
+  const listFor = (p: Provider) => (p === "google" ? GOOGLE_MODELS : p === "openai" ? OPENAI_MODELS : LOVABLE_MODELS);
   const models = listFor(s.provider);
 
   const save = async () => {
@@ -79,8 +79,8 @@ function AdminPage() {
       updated_at: new Date().toISOString(),
     }, { onConflict: "id" });
     const seen = new Set([gKey.trim(), oKey.trim()].filter(Boolean));
-    const cleanPool = pool.filter((p) => p.provider === "jsonplaceholder" || p.key.trim()).map((p) => ({ ...p, name: p.name.trim() || p.provider, key: p.key.trim() }))
-      .filter((p) => { if (p.provider === "jsonplaceholder") return true; if (seen.has(p.key)) return false; seen.add(p.key); return true; }).slice(0, 10);
+    const cleanPool = pool.filter((p) => p.key.trim()).map((p) => ({ ...p, name: p.name.trim() || p.provider, key: p.key.trim() }))
+      .filter((p) => (seen.has(p.key) ? false : (seen.add(p.key), true))).slice(0, 2);
     setPool(cleanPool);
     const r2 = await supabase.from("ai_keys").upsert({ id: 1, google_key: gKey.trim(), openai_key: oKey.trim(), key_pool: cleanPool, updated_at: new Date().toISOString() }, { onConflict: "id" });
     const err = r1.error || r2.error;
@@ -130,8 +130,8 @@ function AdminPage() {
 
         <section className={card}>
           <h2 className={h2}>৩. এআই মোড, মডেল ও চিন্তার গভীরতা</h2>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {([["lovable", "বিল্ট-ইন"], ["google", "Google Gemini"], ["openai", "OpenAI"], ["groq", "Groq"], ["openrouter", "OpenRouter"]] as const).map(([p, l]) => (
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {([["lovable", "বিল্ট-ইন"], ["google", "Google Gemini"], ["openai", "OpenAI"]] as const).map(([p, l]) => (
               <button key={p} onClick={() => setS({ ...s, provider: p, model: listFor(p)[0]?.id ?? "" })}
                 className={`rounded-lg border px-3 py-3 text-sm ${s.provider === p ? "border-primary bg-primary/15 text-primary" : "border-border"}`}>{l}</button>
             ))}
@@ -331,187 +331,46 @@ function FatwaBank() {
 }
 
 
-type PoolProvider = "google" | "openai" | "groq" | "openrouter" | "weather" | "jsonplaceholder" | "custom";
-type PoolKey = { name: string; provider: PoolProvider; key: string; base_url?: string; model?: string; active: boolean };
+type PoolKey = { name: string; provider: "google" | "openai" | "custom"; key: string; base_url?: string; model?: string; active: boolean };
 
 function KeyPool({ pool, setPool, show }: { pool: PoolKey[]; setPool: (p: PoolKey[]) => void; show: boolean }) {
-  const [testing, setTesting] = useState<number | null>(null);
-  const [testResults, setTestResults] = useState<Record<number, string>>({});
-  const [liveModels, setLiveModels] = useState<Record<number, Array<{ id: string; label: string }>>>({});
-  const [loadingModels, setLoadingModels] = useState<number | null>(null);
-
-  const refreshModels = async (index: number) => {
-    setLoadingModels(index);
-    try {
-      const { data } = await supabase.auth.getSession();
-      const response = await fetch("/api/integrations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session?.access_token}` },
-        body: JSON.stringify({ index, action: "models" }),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || !Array.isArray(result.models)) throw new Error(result.error ?? "মডেল তালিকা পাওয়া যায়নি");
-      setLiveModels((prev) => ({ ...prev, [index]: result.models }));
-      setTestResults((prev) => ({ ...prev, [index]: `সফল: ${result.models.length}টি লাইভ মডেল পাওয়া গেছে` }));
-    } catch (error) {
-      setTestResults((prev) => ({ ...prev, [index]: `ব্যর্থ: ${error instanceof Error ? error.message : "মডেল তালিকা পাওয়া যায়নি"}` }));
-    } finally {
-      setLoadingModels(null);
-    }
-  };
-
-  const testIntegration = async (index: number) => {
-    setTesting(index);
-    setTestResults((prev) => ({ ...prev, [index]: "পরীক্ষা চলছে…" }));
-    try {
-      const { data } = await supabase.auth.getSession();
-      const response = await fetch("/api/integrations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session?.access_token}` },
-        body: JSON.stringify({ index }),
-      });
-      const result = await response.json().catch(() => ({}));
-      setTestResults((prev) => ({
-        ...prev,
-        [index]: response.ok ? `সফল: ${result.message ?? "API সচল"}` : `ব্যর্থ: ${result.error ?? "API পরীক্ষা ব্যর্থ"}`,
-      }));
-    } catch {
-      setTestResults((prev) => ({ ...prev, [index]: "ব্যর্থ: নেটওয়ার্ক সংযোগ পরীক্ষা করুন" }));
-    } finally {
-      setTesting(null);
-    }
-  };
-
   const input = "w-full min-w-0 rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary";
   const upd = (i: number, patch: Partial<PoolKey>) => setPool(pool.map((p, j) => (j === i ? { ...p, ...patch } : p)));
-
   return (
     <section className="mt-6 rounded-2xl border border-border bg-card/80 p-6">
-      <h2 className="font-display text-xl text-primary">৪ক. অতিরিক্ত এআই ও ডাটা এপিআই পুল (সর্বোচ্চ ১০টি)</h2>
+      <h2 className="font-display text-xl text-primary">৪ক. সেকেন্ডারি ব্যাকআপ কী (Backup Key - Zero Downtime, সর্বোচ্চ ২টি)</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Groq, OpenRouter, OpenWeatherMap ও JSONPlaceholder এপিআই কি সরাসরি এখানে যুক্ত করুন। ড্রপডাউন থেকে ফ্রি মডেল বাছাই করতে পারবেন এবং লাইভ বাটন চেপে অনলাইন থেকে হালনাগাদ মডেল আনতে পারবেন। পাশে থাকা সিগন্যাল বাক্স দিয়ে সার্ভার রেসপন্স ও ল্যাটেন্সি সরাসরি যাচাই করুন।
+        সর্বোচ্চ ২টি ব্যাকআপ কী রাখা যায়; একই কী দুবার থাকলে সংরক্ষণের সময় স্বয়ংক্রিয়ভাবে বাদ যাবে। মূল কী কাজ না করলে (লিমিট শেষ হলে) এআই নিজে থেকেই তালিকার পরের কী দিয়ে চেষ্টা করবে। "অন্য সেবা" দিয়ে Groq, DeepSeek, OpenRouter-এর মতো যেকোনো সেবা যোগ করা যায়। যোগ করার পর নিচে "সংরক্ষণ করুন" চাপুন।
       </p>
       <div className="mt-4 space-y-3">
         {pool.map((p, i) => (
-          <div key={i} className="space-y-2 rounded-xl border border-border p-3.5 bg-background/50">
+          <div key={i} className="space-y-2 rounded-xl border border-border p-3">
             <div className="flex min-w-0 gap-2">
-              <input value={p.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="নাম (যেমন: Groq Key 1)" className={input} />
-              <select value={p.provider} onChange={(e) => upd(i, { provider: e.target.value as PoolKey["provider"] })} className={`${input} max-w-[11rem]`}>
-                <option value="google">Google Gemini</option>
+              <input value={p.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="নাম (যেমন: Google কী ২)" className={input} />
+              <select value={p.provider} onChange={(e) => upd(i, { provider: e.target.value as PoolKey["provider"] })} className={`${input} max-w-[9rem]`}>
+                <option value="google">Google</option>
                 <option value="openai">OpenAI</option>
-                <option value="groq">Groq Cloud (LPU)</option>
-                <option value="openrouter">OpenRouter (Free)</option>
-                <option value="weather">OpenWeatherMap</option>
-                <option value="jsonplaceholder">JSONPlaceholder (key লাগে না)</option>
-                <option value="custom">অন্য OpenAI-compatible API</option>
+                <option value="custom">অন্য সেবা</option>
               </select>
             </div>
-
-            {p.provider !== "jsonplaceholder" && (
-              <input
-                type={show ? "text" : "password"}
-                value={p.key}
-                onChange={(e) => upd(i, { key: e.target.value })}
-                placeholder={p.provider === "weather" ? "OpenWeatherMap API Key" : "এপিআই কী (API Key)"}
-                className={input}
-              />
-            )}
-
-            {(p.provider === "custom" || p.provider === "groq" || p.provider === "openrouter") && (
-              <div className="flex flex-col sm:flex-row gap-2">
-                {p.provider === "custom" && (
-                  <input value={p.base_url ?? ""} onChange={(e) => upd(i, { base_url: e.target.value })} placeholder="Base URL (HTTPS)" className={input} />
-                )}
-                {p.provider === "groq" || p.provider === "openrouter" ? (
-                  <div className="flex-1 flex gap-2">
-                    <select
-                      value={p.model ?? (p.provider === "groq" ? "llama-3.3-70b-versatile" : "openrouter/free")}
-                      onChange={(e) => upd(i, { model: e.target.value })}
-                      className={input}
-                    >
-                      {(liveModels[i] ?? (p.provider === "groq" ? GROQ_MODELS : OPENROUTER_MODELS)).map((m) => (
-                        <option key={m.id} value={m.id}>{m.label}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => refreshModels(i)}
-                      disabled={loadingModels === i}
-                      className="shrink-0 rounded-lg border border-primary px-3 text-xs text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-                      title="অনলাইন থেকে লাইভ ফ্রি মডেলের তালিকা আনুন"
-                    >
-                      {loadingModels === i ? "আনা হচ্ছে…" : "লাইভ মডেল"}
-                    </button>
-                  </div>
-                ) : (
-                  <input value={p.model ?? ""} onChange={(e) => upd(i, { model: e.target.value })} placeholder="মডেলের নাম" className={input} />
-                )}
+            <input type={show ? "text" : "password"} value={p.key} onChange={(e) => upd(i, { key: e.target.value })} placeholder="এপিআই কী" className={input} />
+            {p.provider === "custom" && (
+              <div className="flex gap-2">
+                <input value={p.base_url ?? ""} onChange={(e) => upd(i, { base_url: e.target.value })} placeholder="ঠিকানা, যেমন https://api.groq.com/openai/v1" className={input} />
+                <input value={p.model ?? ""} onChange={(e) => upd(i, { model: e.target.value })} placeholder="মডেলের নাম" className={input} />
               </div>
             )}
-
-            {p.provider === "weather" && (
-              <input value={p.model ?? "Dhaka"} onChange={(e) => upd(i, { model: e.target.value })} placeholder="পরীক্ষার শহর (ডিফল্ট: Dhaka)" className={input} />
-            )}
-
-            {p.provider === "jsonplaceholder" && (
-              <input value={p.model ?? "posts/1"} onChange={(e) => upd(i, { model: e.target.value })} placeholder="পরীক্ষার পথ (ডিফল্ট: posts/1)" className={input} />
-            )}
-
-            <div className="flex items-center justify-between text-sm pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={p.active} onChange={(e) => upd(i, { active: e.target.checked })} className="rounded" /> সক্রিয় (Active)
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={p.active} onChange={(e) => upd(i, { active: e.target.checked })} /> চালু
               </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => testIntegration(i)}
-                  disabled={testing === i}
-                  className="rounded-lg border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-                >
-                  {testing === i ? "পরীক্ষা চলছে…" : "সিগন্যাল পরীক্ষা"}
-                </button>
-                <button type="button" onClick={() => setPool(pool.filter((_, j) => j !== i))} className="text-xs text-destructive hover:underline">
-                  মুছুন
-                </button>
-              </div>
+              <button onClick={() => setPool(pool.filter((_, j) => j !== i))} className="text-destructive">মুছুন</button>
             </div>
-
-            {/* লাইভ সার্ভার সিগন্যাল বাক্স */}
-            {testResults[i] && (
-              <div
-                role="status"
-                className={`mt-2 flex items-center gap-2.5 rounded-lg border px-3 py-2 text-xs font-mono transition-all ${
-                  testResults[i].startsWith("সফল:")
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                    : testResults[i].startsWith("পরীক্ষা চলছে") || testResults[i].startsWith("আনা হচ্ছে")
-                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                    : "border-destructive/40 bg-destructive/10 text-destructive"
-                }`}
-              >
-                <span
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                    testResults[i].startsWith("সফল:")
-                      ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                      : testResults[i].startsWith("পরীক্ষা চলছে") || testResults[i].startsWith("আনা হচ্ছে")
-                      ? "animate-pulse bg-amber-500"
-                      : "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-                  }`}
-                />
-                <span className="font-sans flex-1 break-words">{testResults[i]}</span>
-              </div>
-            )}
           </div>
         ))}
       </div>
-
-      {pool.length < 10 && (
-        <button
-          onClick={() => setPool([...pool, { name: "", provider: "groq", key: "", active: true }])}
-          className="mt-4 rounded-lg border border-primary px-4 py-2 text-sm text-primary hover:bg-primary/10 transition-colors"
-        >
-          + নতুন এপিআই কী যোগ করুন
-        </button>
-      )}
+      {pool.length < 2 && <button onClick={() => setPool([...pool, { name: "", provider: "google", key: "", active: true }])}
+        className="mt-3 rounded-lg border border-primary px-4 py-2 text-sm text-primary">+ নতুন কী যোগ করুন</button>}
     </section>
   );
 }
