@@ -547,9 +547,12 @@ function ChatPage() {
             content = last ? content.slice(0, 100000) : content.length > 3000 ? content.slice(0, 2500) + "\n...[সংক্ষেপিত]" : content;
             return last ? { ...m, content } : { role: m.role, content };
           }),
-          ...(model ? { model } : {}),
+          model: model || "gemini-2.0-flash",
           ...(mode === "engineer" ? { mode } : {}),
-          ...(reasoningLevel ? { reasoning_effort: reasoningLevel } : {}),
+          ...(systemPrompt.trim() ? { systemInstruction: systemPrompt.trim() } : {}),
+          temperature: temperature,
+          thinkingBudget: reasoningLevel === "high" ? 16384 : reasoningLevel === "medium" ? 8192 : 0,
+          grounding: toolSearch,
         }),
         signal: abortRef.current.signal,
       });
@@ -668,10 +671,14 @@ function ChatPage() {
   const [temperature, setTemperature] = useState(0.2);
   const [topP, setTopP] = useState(0.95);
   const [showCodeDialog, setShowCodeDialog] = useState(false);
+  const [temperature, setTemperature] = useState(0.7);
+  const [showSystemAccordion, setShowSystemAccordion] = useState(false);
 
   useEffect(() => {
     setSystemPrompt(localStorage.getItem("ahsan-system-prompt") || "");
     setReasoningLevel(localStorage.getItem("ahsan-reasoning-effort") || "low");
+    const savedTemp = localStorage.getItem("ahsan-temperature");
+    if (savedTemp) setTemperature(parseFloat(savedTemp) || 0.7);
   }, []);
 
   const selectedModelObj = LOVABLE_MODELS.find((m) => m.id === model);
@@ -809,12 +816,13 @@ function ChatPage() {
         </div>
 
         <div className="p-3">
-          <div className="relative rounded-2xl p-[1.5px] bg-gradient-to-r from-red-500 via-amber-400 via-emerald-400 to-blue-500 shadow-sm">
-            <div className="rounded-[calc(1rem-1.5px)] bg-card p-3">
-              <div className="font-semibold text-xs text-foreground">Unlock Gemini 4 Argon</div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                Access to higher quota, Pro models, and more.
-              </div>
+          <div className="rounded-xl border border-border/80 bg-card p-3">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-xs text-foreground">Google AI Studio</span>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Connected</span>
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
+              Official Gemini 2.0 Flash, 1.5 Pro & Lite via Google Generative AI API.
             </div>
           </div>
 
@@ -1020,7 +1028,59 @@ function ChatPage() {
             <div className="mx-auto w-full max-w-3xl px-4 pt-4 pb-36 sm:px-6">
               {msgs.length === 0 && (
                 <div className="flex flex-col pt-4 sm:pt-8">
-                  <h1 className="text-2xl font-normal tracking-tight text-foreground sm:text-3xl">
+                  {/* Google AI Studio: Collapsible System Instructions */}
+              <div className="mb-4 rounded-xl border border-border/80 bg-card/60 transition-all">
+                <button
+                  type="button"
+                  onClick={() => setShowSystemAccordion(!showSystemAccordion)}
+                  className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal size={14} className="text-primary" />
+                    <span className="font-semibold text-foreground">System Instructions</span>
+                    {systemPrompt.trim() ? (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Active ({systemPrompt.length} chars)</span>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground font-normal">(Optional guidance)</span>
+                    )}
+                  </div>
+                  <ChevronDown
+                    size={15}
+                    className={`transition-transform duration-200 ${showSystemAccordion ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {showSystemAccordion && (
+                  <div className="border-t border-border/60 p-3 space-y-2">
+                    <textarea
+                      value={systemPrompt}
+                      onChange={(e) => {
+                        setSystemPrompt(e.target.value);
+                        localStorage.setItem("ahsan-system-prompt", e.target.value);
+                      }}
+                      rows={3}
+                      placeholder="Optional tone, role and behavior instructions to guide the model's responses..."
+                      className="w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground outline-none focus:border-primary resize-none placeholder:text-muted-foreground/60"
+                    />
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>Sent with every message to customize how the engine responds.</span>
+                      {systemPrompt.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSystemPrompt("");
+                            localStorage.removeItem("ahsan-system-prompt");
+                          }}
+                          className="text-destructive hover:underline text-[11px]"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <h1 className="text-2xl font-normal tracking-tight text-foreground sm:text-3xl">
                     Start building with {selectedModelObj?.label || (model ? model : "Gemini 2.0 Flash")}
                   </h1>
                   <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
@@ -1045,27 +1105,7 @@ function ChatPage() {
                     ))}
                   </div>
 
-                  <div className="mt-8 relative rounded-3xl p-[2px] bg-gradient-to-r from-red-500 via-amber-400 via-emerald-400 to-blue-500 shadow-lg">
-                    <div className="relative overflow-hidden rounded-[calc(1.5rem-2px)] bg-slate-950 p-5 text-white">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Playglow Pixel Arcade</span>
-                        <a
-                          href="https://ai.google.dev"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
-                        >
-                          Open in app gallery <ExternalLink size={12} />
-                        </a>
-                      </div>
-                      <div className="mt-6 font-mono text-xs text-amber-300">
-                        RUNNER // HERO SCORE
-                      </div>
-                      <div className="mt-1 text-sm text-slate-200">
-                        Build interactive apps and full web experiences directly in Playground.
-                      </div>
-                    </div>
-                  </div>
+                  
                 </div>
               )}
 
@@ -1383,12 +1423,12 @@ function ChatPage() {
               }}
               className="mt-2 w-full rounded-xl border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
             >
-              <option value="">স্বয়ংক্রিয় (Gemini 2.0 Flash - দ্রুততম)</option>
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (গুগল দ্রুত)</option>
-              <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
-              <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (Default, Fast & Multimodal)</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning & Analysis)</option>
+              <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite (Ultra-fast)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Balanced & Efficient)</option>
               <option value="gpt-4o">OpenAI GPT-4o</option>
-              <option value="llama-3.3-70b-versatile">Llama 3.3 70B</option>
+              <option value="gpt-5.5">OpenAI GPT-5.5</option>
             </select>
           </div>
 
@@ -1427,7 +1467,32 @@ function ChatPage() {
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-card p-3.5 space-y-2">
-            <div className="font-semibold text-xs text-foreground">Thinking level</div>
+            <div className="rounded-2xl border border-border/80 bg-card p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold text-xs text-foreground">Temperature</div>
+              <span className="font-mono text-xs font-semibold text-primary">{temperature.toFixed(2)}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.05"
+              value={temperature}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setTemperature(v);
+                localStorage.setItem("ahsan-temperature", String(v));
+              }}
+              className="w-full accent-primary"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>Precise (0.0)</span>
+              <span>Balanced (0.7)</span>
+              <span>Creative (2.0)</span>
+            </div>
+          </div>
+
+          <div className="font-semibold text-xs text-foreground">Thinking level</div>
             <select
               value={reasoningLevel}
               onChange={(e) => {
