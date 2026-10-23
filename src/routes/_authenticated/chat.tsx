@@ -4,14 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 const urlT = (u: string) => (u.startsWith("data:image/") ? u : defaultUrlTransform(u));
 import remarkGfm from "remark-gfm";
-import {
-  Mic, MicOff, Send, Plus, Trash2, Volume2, VolumeX, LogOut, Shield, Menu, Square,
-  Copy, Check, Search, Printer, Download, Maximize2, Code2, MonitorPlay, ExternalLink,
-  ImagePlus, Compass, Paperclip, Bookmark as BookmarkIcon, BookmarkCheck, Share2, Globe,
-  Sparkles, Brain, CheckCircle2, Loader2, Moon, Sun, Play, Pencil, Pin, PinOff,
-  Archive, ArchiveRestore, RotateCcw, SlidersHorizontal, X, ChevronDown, ChevronRight,
-  History, Layers, Terminal, BookOpen, Bell, Key, MoreVertical, Sparkle
-} from "lucide-react";
+import { Mic, MicOff, Send, Plus, Trash2, Volume2, VolumeX, LogOut, Shield, Menu, Square, Copy, Check, Search, Printer, Download, Maximize2, Code2, MonitorPlay, ExternalLink, ImagePlus, Compass, Paperclip, Bookmark as BookmarkIcon, BookmarkCheck, Share2, Globe, Sparkles, Brain, CheckCircle2, Loader2, Moon, Sun, Play, Pencil, Pin, PinOff, Archive, ArchiveRestore, RotateCcw } from "lucide-react";
 
 import { CodePreviewDialog } from "@/components/chat/CodePreviewDialog";
 import { ProjectWorkspace } from "@/components/chat/ProjectWorkspace";
@@ -128,7 +121,7 @@ async function exportAnswer(content: string, kind: "md" | "doc" | "pdf") {
     saveBlob(await Packer.toBlob(d), "al-ahsan-answer.docx");
   } catch { alert("Word ফাইল তৈরি করা যায়নি।"); }
 }
-import { ALL_AVAILABLE_MODELS } from "@/lib/models";
+import { LOVABLE_MODELS } from "@/lib/models";
 import { Settings as SettingsIcon, Camera, MonitorUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
@@ -540,20 +533,7 @@ function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${s.session?.access_token}` },
-        body: JSON.stringify({
-          messages: history.slice(-8).map((m, i, arr) => {
-            const last = i === arr.length - 1;
-            let content = (last ? (prevSite ? `${apiText}\n\n=== বর্তমান ওয়েবসাইট (ভার্সন ${siteVersion - 1}) ===\nনির্দেশ: ব্যবহারকারী এই সাইটে পরিবর্তন চাইলে শূন্য থেকে নতুন সাইট বানাবে না; নিচের কোডের ওপরই শুধু চাওয়া অংশ বদলে বাকি সব ডিজাইন, লেখা, ছবি, তথ্য হুবহু রেখে সম্পূর্ণ নতুন ভার্সন (ভার্সন ${siteVersion}) একটি পূর্ণ \`\`\`html ব্লকে দেবে। আগের ভার্সনে ফিরতে বললে সেই ভার্সনটি হুবহু দেবে।\n\`\`\`html\n${prevSite.slice(0, 60000)}\n\`\`\`` : apiText) : m.content).replace(/!\[[^\]]*\]\(data:image[^)]+\)/g, "[ছবি]");
-            content = last ? content.slice(0, 100000) : content.length > 3000 ? content.slice(0, 2500) + "\n...[সংক্ষেপিত]" : content;
-            return last ? { ...m, content } : { role: m.role, content };
-          }),
-          model: model || "gemini-2.0-flash",
-          ...(mode === "engineer" ? { mode } : {}),
-          ...(systemPrompt.trim() ? { systemInstruction: systemPrompt.trim() } : {}),
-          temperature: temperature,
-          thinkingBudget: reasoningLevel === "high" ? 16384 : reasoningLevel === "medium" ? 8192 : 0,
-          grounding: toolSearch,
-        }),
+        body: JSON.stringify({ messages: history.slice(-8).map((m, i, arr) => { const last = i === arr.length - 1; let content = (last ? (prevSite ? `${apiText}\n\n=== বর্তমান ওয়েবসাইট (ভার্সন ${siteVersion - 1}) ===\nনির্দেশ: ব্যবহারকারী এই সাইটে পরিবর্তন চাইলে শূন্য থেকে নতুন সাইট বানাবে না; নিচের কোডের ওপরই শুধু চাওয়া অংশ বদলে বাকি সব ডিজাইন, লেখা, ছবি, তথ্য হুবহু রেখে সম্পূর্ণ নতুন ভার্সন (ভার্সন ${siteVersion}) একটি পূর্ণ \`\`\`html ব্লকে দেবে। আগের ভার্সনে ফিরতে বললে সেই ভার্সনটি হুবহু দেবে।\n\`\`\`html\n${prevSite.slice(0, 60000)}\n\`\`\`` : apiText) : m.content).replace(/!\[[^\]]*\]\(data:image[^)]+\)/g, "[ছবি]"); content = last ? content.slice(0, 100000) : content.length > 3000 ? content.slice(0, 2500) + "\n...[সংক্ষেপিত]" : content; return last ? { ...m, content } : { role: m.role, content }; }), ...(model ? { model } : {}), ...(mode === "engineer" ? { mode } : {}) }),
         signal: abortRef.current.signal,
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
@@ -657,148 +637,67 @@ function ChatPage() {
     navigate({ to: "/", replace: true });
   };
 
-
-  const [runSettingsOpen, setRunSettingsOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"playground" | "history" | "apps" | "gallery">("playground");
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [reasoningLevel, setReasoningLevel] = useState("low");
-  const [toolStructured, setToolStructured] = useState(false);
-  const [toolCode, setToolCode] = useState(true);
-  const [toolFn, setToolFn] = useState(false);
-  const [toolSearch, setToolSearch] = useState(true);
-  const [toolMaps, setToolMaps] = useState(false);
-  const [toolUrl, setToolUrl] = useState(true);
-  const [temperature, setTemperature] = useState(0.2);
-  const [topP, setTopP] = useState(0.95);
-  const [showCodeDialog, setShowCodeDialog] = useState(false);
-  const [showSystemAccordion, setShowSystemAccordion] = useState(false);
-
-  useEffect(() => {
-    setSystemPrompt(localStorage.getItem("ahsan-system-prompt") || "");
-    setReasoningLevel(localStorage.getItem("ahsan-reasoning-effort") || "low");
-    const savedTemp = localStorage.getItem("ahsan-temperature");
-    if (savedTemp) setTemperature(parseFloat(savedTemp) || 0.7);
-  }, []);
-
-  const selectedModelObj = ALL_AVAILABLE_MODELS.find((m) => m.id === model);
   return (
     <div className="flex h-dvh w-full max-w-full overflow-hidden bg-background text-foreground">
-      {/* 1. Left Sidebar (Google AI Studio Navigation) */}
       <aside
-        className={`${
-          sidebar ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        } fixed inset-y-0 left-0 z-40 flex w-72 shrink-0 flex-col border-r border-border/70 bg-background transition-transform duration-200 ease-in-out md:static`}
+        className={`${sidebar ? "flex" : "hidden"} fixed inset-y-0 left-0 z-30 w-72 flex-col border-r border-border/50 bg-background md:static md:flex`}
       >
-        <div className="flex h-14 items-center justify-between border-b border-border/60 px-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Sparkles size={18} />
+        <div className="flex items-center gap-3 p-4">
+          <Logo size={32} />
+          <span className="font-display text-xl">আল আহসান</span>
+        </div>
+        <button onClick={newChat} className="mx-3 flex items-center gap-2 rounded-lg border border-primary/40 px-3 py-2 text-primary hover:bg-primary/10">
+          <Plus size={18} /> নতুন কথোপকথন
+        </button>
+        <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+          <Search size={15} className="text-muted-foreground" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="কথোপকথন খুঁজুন…" className="w-full bg-transparent outline-none placeholder:text-muted-foreground" />
+        </div>
+        <div className="mt-3 flex-1 space-y-1 overflow-y-auto px-2">
+          {convs.filter((c) => c.archived === showArchived && c.title.toLowerCase().includes(q.toLowerCase())).map((c) => (
+            <div key={c.id} className={`group flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${active === c.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60"}`}>
+              {c.pinned && <Pin size={12} className="shrink-0 text-primary" aria-label="পিন করা" />}
+              <button onClick={() => openConv(c.id)} className="flex-1 truncate text-left">{c.title}</button>
+              <div className="flex items-center gap-1.5 md:opacity-0 md:group-hover:opacity-100">
+                <button onClick={() => patchConv(c.id, { pinned: !c.pinned })} className="text-muted-foreground hover:text-primary" aria-label={c.pinned ? "পিন সরান" : "পিন করুন"} title={c.pinned ? "পিন সরান" : "পিন করুন"}>
+                  {c.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                </button>
+                <button onClick={() => renameConv(c)} className="text-muted-foreground hover:text-primary" aria-label="নাম পরিবর্তন" title="নাম পরিবর্তন"><Pencil size={14} /></button>
+                <button onClick={() => patchConv(c.id, { archived: !c.archived })} className="text-muted-foreground hover:text-primary" aria-label={c.archived ? "আর্কাইভ থেকে ফেরান" : "আর্কাইভ করুন"} title={c.archived ? "আর্কাইভ থেকে ফেরান" : "আর্কাইভ করুন"}>
+                  {c.archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+                </button>
+                <button onClick={() => delConv(c.id)} className="text-muted-foreground hover:text-destructive" aria-label="মুছুন" title="মুছুন"><Trash2 size={14} /></button>
+              </div>
             </div>
-            <span className="font-sans text-base font-semibold tracking-tight text-foreground">
-              Google AI Studio
-            </span>
-          </div>
-          <button
-            onClick={() => setSidebar(false)}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary md:hidden"
-            aria-label="বন্ধ করুন"
-          >
-            <X size={18} />
+          ))}
+          <button onClick={() => setShowArchived((v) => !v)} className="mt-2 w-full rounded-lg px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-sidebar-accent/60">
+            {showArchived ? "← সক্রিয় কথোপকথনে ফিরুন" : `আর্কাইভ (${convs.filter((c) => c.archived).length})`}
           </button>
         </div>
-
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 text-sm">
-          <div>
-            <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              EXPLORE
-            </div>
-            <nav className="space-y-1">
-              <button
-                onClick={() => { setViewMode("playground"); setSidebar(false); }}
-                className={`flex w-full items-center gap-3 rounded-full px-3.5 py-2.5 text-left font-medium transition-colors ${
-                  viewMode === "playground" ? "bg-secondary text-foreground font-semibold" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                }`}
-              >
-                <Terminal size={17} /> Playground
-              </button>
-              <button
-                onClick={() => { setViewMode("history"); setSidebar(false); }}
-                className={`flex w-full items-center gap-3 rounded-full px-3.5 py-2.5 text-left font-medium transition-colors ${
-                  viewMode === "history" ? "bg-secondary text-foreground font-semibold" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                }`}
-              >
-                <History size={17} /> History
-                {convs.length > 0 && (
-                  <span className="ml-auto text-xs text-muted-foreground">{convs.length}</span>
-                )}
-              </button>
-            </nav>
+        {bookmarks.length > 0 && (
+          <div className="max-h-48 overflow-y-auto border-t border-border px-2 py-2 text-sm">
+            <div className="px-2 pb-1 text-xs text-muted-foreground">সংরক্ষিত উত্তর ({bookmarks.length})</div>
+            {bookmarks.map((b) => (
+              <div key={b.id} className="group flex items-center rounded-lg px-2 py-1.5 hover:bg-sidebar-accent/60">
+                <button onClick={() => { setActive(null); setMsgs([{ role: "assistant", content: b.content }]); setSidebar(false); }} className="flex-1 truncate text-left">{b.content.replace(/[#*`>]/g, "").slice(0, 60)}</button>
+                <button onClick={() => toggleBookmark(b.content)} className="text-muted-foreground hover:text-destructive" aria-label="মুছুন"><Trash2 size={13} /></button>
+              </div>
+            ))}
           </div>
-
-          <div>
-            <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              BUILD
-            </div>
-            <nav className="space-y-1">
-              <button
-                onClick={() => { newChat(); setViewMode("playground"); setSidebar(false); }}
-                className="flex w-full items-center gap-3 rounded-full px-3.5 py-2.5 text-left font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-              >
-                <Plus size={17} /> New app
-              </button>
-              <button
-                onClick={() => { setViewMode("apps"); setSidebar(false); }}
-                className={`flex w-full items-center gap-3 rounded-full px-3.5 py-2.5 text-left font-medium transition-colors ${
-                  viewMode === "apps" ? "bg-secondary text-foreground font-semibold" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                }`}
-              >
-                <Layers size={17} /> My apps
-              </button>
-              <button
-                onClick={() => { setViewMode("gallery"); setSidebar(false); }}
-                className={`flex w-full items-center gap-3 rounded-full px-3.5 py-2.5 text-left font-medium transition-colors ${
-                  viewMode === "gallery" ? "bg-secondary text-foreground font-semibold" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                }`}
-              >
-                <Sparkle size={17} /> Gallery
-                {bookmarks.length > 0 && (
-                  <span className="ml-auto text-xs text-muted-foreground">{bookmarks.length}</span>
-                )}
-              </button>
-            </nav>
-          </div>
-
-          <div>
-            <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              MANAGE
-            </div>
-            <nav className="space-y-1">
-              {admin && (
-                <Link
-                  to="/admin"
-                  className="flex w-full items-center justify-between rounded-full px-3.5 py-2.5 text-left font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                >
-                  <span className="flex items-center gap-3"><Shield size={17} /> Dashboard</span>
-                  <ChevronRight size={15} />
-                </Link>
-              )}
-              <Link
-                to="/salat"
-                className="flex w-full items-center justify-between rounded-full px-3.5 py-2.5 text-left font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-              >
-                <span className="flex items-center gap-3"><BookOpen size={17} /> Documentation</span>
-                <ChevronRight size={15} />
-              </Link>
-            </nav>
-          </div>
-
-          <div className="rounded-2xl border border-border/80 bg-card/60 p-3 text-xs">
+        )}
+        <div className="space-y-1 border-t border-border p-3 text-sm">
+                  {/* ইউআরএল যোগ করুন */}
+          <div className="mb-2 rounded-xl border border-border/80 bg-card/60 p-2.5 text-xs">
             <div className="mb-1 flex items-center justify-between font-medium text-foreground">
               <span className="flex items-center gap-1.5 text-primary">
-                <Globe size={13} /> কাস্টম ইউআরএল
+                <Globe size={14} /> ইউআরএল যোগ করুন
               </span>
               {customSlug && (
-                <button type="button" onClick={() => setCustomSlug("")} className="text-[10px] text-destructive hover:underline">
+                <button
+                  type="button"
+                  onClick={() => setCustomSlug("")}
+                  className="text-[11px] text-destructive hover:underline"
+                >
                   মুছুন
                 </button>
               )}
@@ -808,829 +707,218 @@ function ChatPage() {
               value={customSlug}
               onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
               placeholder="যেমন: my-school (ঐচ্ছিক)"
-              className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+              className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
             />
-            {customSlug && <p className="mt-1 truncate text-[10px] text-muted-foreground">লিংক: /{customSlug}</p>}
+            {customSlug && (
+              <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                লিংক: /{customSlug}
+              </p>
+            )}
           </div>
-        </div>
-
-        <div className="p-3">
-          <div className="rounded-xl border border-border/80 bg-card p-3">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-xs text-foreground">Google AI Studio</span>
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Connected</span>
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
-              Official Gemini 2.0 Flash, 1.5 Pro & Lite via Google Generative AI API.
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between px-2 text-muted-foreground">
-            <button className="rounded-lg p-2 hover:bg-secondary hover:text-foreground" title="Notifications"><Bell size={17} /></button>
-            <Link to="/admin" className="rounded-lg p-2 hover:bg-secondary hover:text-foreground" title="Settings"><SettingsIcon size={17} /></Link>
-            <button onClick={() => { setViewMode("history"); setSidebar(false); }} className="rounded-lg p-2 hover:bg-secondary hover:text-foreground" title="Search"><Search size={17} /></button>
-            <button onClick={() => { setRunSettingsOpen(true); setSidebar(false); }} className="rounded-lg p-2 hover:bg-secondary hover:text-foreground" title="Run settings"><Key size={17} /></button>
-          </div>
-
-          <div className="mt-2 flex items-center gap-2.5 rounded-full border border-border/80 bg-card px-3 py-2 text-xs">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-purple-600 font-bold text-white uppercase text-xs">
-              {user.email ? user.email.charAt(0) : "A"}
-            </div>
-            <Link to="/profile" className="flex-1 truncate text-foreground hover:underline" title={user.email}>
-              {user.email}
+          <Link to="/salat" className="flex items-center gap-2 rounded-lg px-3 py-2 text-primary hover:bg-primary/10">
+            <Compass size={16} /> নামাজের সময়, কিবলা ও মসজিদ
+          </Link>
+          {admin && (
+            <Link to="/admin" className="flex items-center gap-2 rounded-lg px-3 py-2 text-primary hover:bg-primary/10">
+              <Shield size={16} /> অ্যাডমিন প্যানেল
             </Link>
-            <button onClick={signOut} className="text-muted-foreground hover:text-destructive" title="বের হোন">
-              <LogOut size={14} />
-            </button>
-          </div>
+          )}
+          <Link to="/profile" className="block truncate rounded-lg px-3 py-1 text-xs text-muted-foreground hover:text-primary">{user.email} — আমার প্রোফাইল</Link>
+          <button onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-sidebar-accent">
+            <LogOut size={16} /> বের হোন
+          </button>
         </div>
       </aside>
 
-      {sidebar && (
-        <div
-          className="fixed inset-0 z-30 bg-background/80 backdrop-blur-xs md:hidden"
-          onClick={() => setSidebar(false)}
-        />
-      )}
-
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
-        <header className="flex h-14 min-w-0 items-center justify-between border-b border-border/70 bg-background/95 px-3 backdrop-blur sm:px-4">
+      {sidebar && <div className="fixed inset-0 z-20 bg-background/70 md:hidden" onClick={() => setSidebar(false)} />}
+      <main className="bg-background flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        <header className="flex min-w-0 items-center justify-between gap-2 bg-background px-3 py-3 sm:px-4">
+          <button className="md:hidden" onClick={() => setSidebar(!sidebar)} aria-label="মেনু"><Menu /></button>
+          <span className="truncate font-display text-lg text-primary">আল আহসান এআই</span>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSidebar(true)}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              aria-label="মেনু"
-            >
-              <Menu size={20} />
-            </button>
-            <span className="font-sans text-base font-semibold tracking-tight text-foreground sm:text-lg">
-              {viewMode === "history" ? "Conversation History" : viewMode === "apps" ? "My Apps & Websites" : viewMode === "gallery" ? "Saved Gallery" : "Playground"}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              onClick={newChat}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              title="নতুন কথোপকথন (+)"
-            >
-              <Plus size={19} />
-            </button>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title="অতিরিক্ত অপশন"
-                >
-                  <MoreVertical size={18} />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-56 p-1 text-xs">
-                {msgs.length > 0 && (
-                  <>
-                    <button onClick={() => printChat(msgs)} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-secondary">
-                      <Printer size={15} /> প্রিন্ট / PDF ডাউনলোড
-                    </button>
-                    <button onClick={() => downloadChat(msgs)} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-secondary">
-                      <Download size={15} /> টেক্সট ফাইল ডাউনলোড
-                    </button>
-                    <div className="my-1 border-t border-border" />
-                  </>
-                )}
-                <button onClick={toggleDark} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-secondary">
-                  {dark ? <Sun size={15} /> : <Moon size={15} />} {dark ? "লাইট মোড" : "ডার্ক মোড"}
-                </button>
-                <button
-                  onClick={() => { setVoiceOut(!voiceOut); window.speechSynthesis?.cancel(); }}
-                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-secondary"
-                >
-                  {voiceOut ? <Volume2 size={15} className="text-primary" /> : <VolumeX size={15} />} ভয়েস আউটপুট {voiceOut ? "(চালু)" : "(বন্ধ)"}
-                </button>
-              </PopoverContent>
-            </Popover>
-
-            <button
-              onClick={() => setRunSettingsOpen(!runSettingsOpen)}
-              className={`rounded-lg p-2 transition-colors ${
-                runSettingsOpen ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
-              title="Run settings"
-            >
-              <SlidersHorizontal size={19} />
-            </button>
+          {msgs.length > 0 && (<>
+            <button onClick={() => printChat(msgs)} className="rounded-full border border-border p-1.5 text-muted-foreground hover:text-primary" aria-label="প্রিন্ট / PDF" title="প্রিন্ট / PDF"><Printer size={16} /></button>
+            <button onClick={() => downloadChat(msgs)} className="rounded-full border border-border p-1.5 text-muted-foreground hover:text-primary" aria-label="ডাউনলোড" title="ডাউনলোড"><Download size={16} /></button>
+          </>)}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={`rounded-full border p-1.5 hover:text-primary ${mode || model ? "border-primary text-primary" : "border-border text-muted-foreground"}`} aria-label="সেটিংস" title="সেটিংস"><SettingsIcon size={16} /></button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 space-y-3">
+              <label className="block text-xs text-muted-foreground">কাজের ধরন
+                <select value={mode} onChange={(e) => { setMode(e.target.value); localStorage.setItem("ahsan-mode", e.target.value); }} className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground"><option value="">সাধারণ</option>{MODES.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select>
+              </label>
+              <label className="block text-xs text-muted-foreground">AI মডেল
+                <select value={model} onChange={(e) => { setModel(e.target.value); localStorage.setItem("ahsan-model", e.target.value); }} className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground"><option value="">স্বয়ংক্রিয় (দ্রুত)</option>{LOVABLE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</select>
+              </label>
+            </PopoverContent>
+          </Popover>
+          <button onClick={toggleDark} className="rounded-full border border-border p-1.5 text-muted-foreground hover:text-primary" aria-label="ডার্ক মোড" title="ডার্ক / লাইট মোড">{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
+          <button
+            onClick={() => { setVoiceOut(!voiceOut); window.speechSynthesis?.cancel(); }}
+            className={`flex items-center gap-1 rounded-full border px-3 py-1 text-sm ${voiceOut ? "border-primary text-primary" : "border-border text-muted-foreground"}`}
+          >
+            {voiceOut ? <Volume2 size={16} /> : <VolumeX size={16} />} <span className="hidden sm:inline">ভয়েস উত্তর</span>
+          </button>
           </div>
         </header>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-6">
 
-        <div className="relative flex-1 overflow-y-auto overflow-x-hidden">
-          {viewMode === "history" && (
-            <div className="mx-auto w-full max-w-3xl px-4 py-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-foreground">সকল কথোপকথন ({convs.length})</h2>
-                <button
-                  onClick={() => setShowArchived((v) => !v)}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary"
-                >
-                  {showArchived ? "← সক্রিয় কথোপকথন" : `আর্কাইভ (${convs.filter((c) => c.archived).length})`}
-                </button>
-              </div>
-              <div className="mb-4 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
-                <Search size={16} className="text-muted-foreground" />
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="কথোপকথন খুঁজুন…"
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                />
-              </div>
-              <div className="space-y-2">
-                {convs.filter((c) => c.archived === showArchived && c.title.toLowerCase().includes(q.toLowerCase())).map((c) => (
-                  <div key={c.id} className="flex items-center justify-between rounded-xl border border-border/70 bg-card p-3 hover:border-primary/50">
-                    <button
-                      onClick={() => { openConv(c.id); setViewMode("playground"); }}
-                      className="flex-1 truncate text-left font-medium text-sm text-foreground hover:text-primary"
-                    >
-                      {c.pinned && <Pin size={13} className="mr-1.5 inline text-primary" />}
-                      {c.title}
-                    </button>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <button onClick={() => patchConv(c.id, { pinned: !c.pinned })} title={c.pinned ? "আনপিন" : "পিন"}>
-                        {c.pinned ? <PinOff size={15} /> : <Pin size={15} />}
-                      </button>
-                      <button onClick={() => renameConv(c)} title="নাম পরিবর্তন"><Pencil size={15} /></button>
-                      <button onClick={() => patchConv(c.id, { archived: !c.archived })} title={c.archived ? "সক্রিয় করুন" : "আর্কাইভ"}>
-                        {c.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
-                      </button>
-                      <button onClick={() => delConv(c.id)} title="মুছুন" className="hover:text-destructive"><Trash2 size={15} /></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {viewMode === "apps" && (
-            <div className="mx-auto w-full max-w-3xl px-4 py-6">
-              <h2 className="text-lg font-semibold text-foreground mb-3">আমার তৈরি অ্যাপ ও ওয়েবসাইটসমূহ</h2>
-              <p className="text-sm text-muted-foreground mb-6">Playground-এ আপনি যখনই কোনো ওয়েবসাইট বা অ্যাপ তৈরির নির্দেশ দেন, তার লাইভ লিংক তৈরি হয়।</p>
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-medium text-sm text-foreground">কাস্টম ইউআরএল তৈরি করুন</span>
-                  {customSlug && <span className="text-xs text-primary font-mono">/{customSlug}</span>}
-                </div>
-                <input
-                  type="text"
-                  value={customSlug}
-                  onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                  placeholder="যেমন: my-landing-page"
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-                <button
-                  onClick={() => { setViewMode("playground"); setInput("আমার জন্য একটি আধুনিক রেসপনসিভ ল্যান্ডিং পেজ তৈরি করে দিন"); }}
-                  className="mt-4 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
-                >
-                  নতুন অ্যাপ তৈরিতে যান
-                </button>
-              </div>
-            </div>
-          )}
-
-          {viewMode === "gallery" && (
-            <div className="mx-auto w-full max-w-3xl px-4 py-6">
-              <h2 className="text-lg font-semibold text-foreground mb-4">সংরক্ষিত উত্তর গ্যালারি ({bookmarks.length})</h2>
-              {bookmarks.length === 0 ? (
-                <div className="text-center py-12 text-sm text-muted-foreground">এখনো কোনো উত্তর সংরক্ষণ করা হয়নি। চ্যাটের নিচে সংরক্ষণ বাটনে চাপলে এখানে জমা হবে।</div>
-              ) : (
-                <div className="space-y-3">
-                  {bookmarks.map((b) => (
-                    <div key={b.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
-                      <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-4">{b.content.replace(/[#*`>]/g, "")}</p>
-                      <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs text-muted-foreground">
-                        <button
-                          onClick={() => { setActive(null); setMsgs([{ role: "assistant", content: b.content }]); setViewMode("playground"); }}
-                          className="text-primary hover:underline"
-                        >
-                          প্লেগ্রাউন্ডে খুলুন →
-                        </button>
-                        <button onClick={() => toggleBookmark(b.content)} className="text-destructive hover:underline">
-                          মুছে ফেলুন
-                        </button>
-                      </div>
-                    </div>
+            {msgs.length === 0 && (
+              <div className="mt-20 flex flex-col items-center text-center">
+                <Logo size={64} />
+                <h2 className="mt-4 font-display text-3xl">{cfg.welcome_title || "আসসালামু আলাইকুম"}</h2>
+                <p className="mt-2 text-muted-foreground">{cfg.welcome_subtitle || "আজ আমি কীভাবে সাহায্য করতে পারি? লিখুন অথবা মাইক চেপে বলুন।"}</p>
+                <div className="mt-8 grid w-full gap-3 sm:grid-cols-2">
+                  {(cfg.suggestions ? cfg.suggestions.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 6) : ["সূরা ফাতিহার তাফসীর সংক্ষেপে বলুন", "আমার স্কুলের জন্য একটি ওয়েবসাইট বানিয়ে দিন", "এই ইংরেজি বাক্যটি বাংলায় অনুবাদ করুন", "Python দিয়ে একটি ক্যালকুলেটর বানান"]).map((p) => (
+                    <button key={p} onClick={() => setInput(p)} className="rounded-xl border border-border bg-card/60 p-4 text-left text-sm hover:border-primary/60">{p}</button>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {viewMode === "playground" && (
-            <div className="mx-auto w-full max-w-3xl px-4 pt-4 pb-36 sm:px-6">
-              {msgs.length === 0 && (
-                <div className="flex flex-col pt-4 sm:pt-8">
-                  {/* Google AI Studio: Collapsible System Instructions */}
-              <div className="mb-4 rounded-xl border border-border/80 bg-card/60 transition-all">
-                <button
-                  type="button"
-                  onClick={() => setShowSystemAccordion(!showSystemAccordion)}
-                  className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
-                >
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal size={14} className="text-primary" />
-                    <span className="font-semibold text-foreground">System Instructions</span>
-                    {systemPrompt.trim() ? (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Active ({systemPrompt.length} chars)</span>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground font-normal">(Optional guidance)</span>
-                    )}
-                  </div>
-                  <ChevronDown
-                    size={15}
-                    className={`transition-transform duration-200 ${showSystemAccordion ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {showSystemAccordion && (
-                  <div className="border-t border-border/60 p-3 space-y-2">
-                    <textarea
-                      value={systemPrompt}
-                      onChange={(e) => {
-                        setSystemPrompt(e.target.value);
-                        localStorage.setItem("ahsan-system-prompt", e.target.value);
-                      }}
-                      rows={3}
-                      placeholder="Optional tone, role and behavior instructions to guide the model's responses..."
-                      className="w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground outline-none focus:border-primary resize-none placeholder:text-muted-foreground/60"
-                    />
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>Sent with every message to customize how the engine responds.</span>
-                      {systemPrompt.trim() && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSystemPrompt("");
-                            localStorage.removeItem("ahsan-system-prompt");
-                          }}
-                          className="text-destructive hover:underline text-[11px]"
-                        >
-                          Clear
-                        </button>
+              </div>
+            )}
+            {msgs.map((m, i) => (
+              <div key={i} className={`mb-5 flex gap-3 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                {m.role === "assistant" && <div className="mt-0.5 shrink-0 overflow-hidden rounded-full"><Logo size={26} /></div>}
+                <div className={m.role === "user" ? "max-w-[85%] break-words rounded-2xl rounded-br-sm bg-primary px-4 py-3 text-primary-foreground" : "prose-ai min-w-0 max-w-full flex-1 break-words"}>
+                  {m.role === "user" ? (
+                    <>
+                      {((m.images && m.images.length > 0) ? m.images : m.image ? [m.image] : []).length > 0 && (
+  <div className="mb-2 flex flex-wrap gap-2">
+    {((m.images && m.images.length > 0) ? m.images : [m.image!]).map((src, idx) => (
+      <img key={idx} src={src} alt={`ছবি ${idx + 1}`} className="max-h-40 rounded-lg border border-border object-cover" />
+    ))}
+  </div>
+)}
+                      <p className="whitespace-pre-wrap">{m.content}</p>
+                      {!loading && (
+                        <div className="mt-1 flex justify-end gap-3 text-xs text-primary-foreground/80">
+                          <button onClick={() => copy(m.content, i)} className="flex items-center gap-1 hover:text-primary-foreground" aria-label="কপি">{copied === i ? <Check size={13} /> : <Copy size={13} />}</button>
+                          <button onClick={() => setInput(m.content.replace(/\n\n\[সংযুক্ত ফাইল: [^\]]*\]$/, ""))} className="flex items-center gap-1 hover:text-primary-foreground" aria-label="এডিট"><Pencil size={13} /> এডিট</button>
+                        </div>
                       )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <h1 className="text-2xl font-normal tracking-tight text-foreground sm:text-3xl">
-                    Start building with {selectedModelObj?.label || (model ? model : "Gemini 2.0 Flash")}
-                  </h1>
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                    {cfg.welcome_subtitle || "Ultra-low latency, cost-efficient intelligence for high-volume extraction, classification, and instant UI generation."}
-                  </p>
-
-                  <div className="mt-6 space-y-2.5">
-                    {[
-                      "Classify 1,000 support tickets into strict JSON",
-                      "Build a zero-dependency command palette",
-                      "Normalize messy catalog attributes to NDJSON",
-                      ...(cfg.suggestions ? cfg.suggestions.split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 3) : ["সূরা ফাতিহার তাফসীর সংক্ষেপে বিশ্লেষণ করুন", "আমার বিজনেসের জন্য একটি সুন্দর ওয়েবসাইট বানিয়ে দিন"])
-                    ].map((promptText, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setInput(promptText)}
-                        className="flex w-full items-center justify-between rounded-xl border border-border/70 bg-card/60 px-4 py-3 text-left text-xs sm:text-sm text-foreground transition-all hover:border-primary/60 hover:bg-card hover:shadow-xs"
-                      >
-                        <span className="line-clamp-1">{promptText}</span>
-                        <ChevronRight size={15} className="shrink-0 text-muted-foreground/60 ml-2" />
-                      </button>
-                    ))}
-                  </div>
-
-
-                </div>
-              )}
-
-              {msgs.map((m, i) => (
-                <div key={i} className={`mb-5 flex gap-3 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  {m.role === "assistant" && (
-                    <div className="mt-0.5 shrink-0 overflow-hidden rounded-full">
-                      <Logo size={26} />
-                    </div>
-                  )}
-                  <div className={m.role === "user" ? "max-w-[85%] break-words rounded-2xl rounded-br-sm bg-primary px-4 py-3 text-primary-foreground shadow-xs" : "prose-ai min-w-0 max-w-full flex-1 break-words"}>
-                    {m.role === "user" ? (
-                      <>
-                        {((m.images && m.images.length > 0) ? m.images : m.image ? [m.image] : []).length > 0 && (
-                          <div className="mb-2 flex flex-wrap gap-2">
-                            {((m.images && m.images.length > 0) ? m.images : [m.image!]).map((src, idx) => (
-                              <img key={idx} src={src} alt={`ছবি ${idx + 1}`} className="max-h-40 rounded-lg border border-border object-cover" />
-                            ))}
-                          </div>
-                        )}
-                        <p className="whitespace-pre-wrap">{m.content}</p>
-                        {!loading && (
-                          <div className="mt-1 flex justify-end gap-3 text-xs text-primary-foreground/80">
-                            <button onClick={() => copy(m.content, i)} className="flex items-center gap-1 hover:text-primary-foreground" aria-label="কপি">
-                              {copied === i ? <Check size={13} /> : <Copy size={13} />}
-                            </button>
-                            <button onClick={() => setInput(m.content.replace(/\n\n\[সংযুক্ত ফাইল: [^\]]*\]$/, ""))} className="flex items-center gap-1 hover:text-primary-foreground" aria-label="এডিট">
-                              <Pencil size={13} /> এডিট
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        {i === msgs.length - 1 && flow && <WorkflowStepper stages={flow.stages} current={flow.current} />}
-                        {m.content ? (() => {
-                          const { body, followups } = splitFollowups(stripEmoji(m.content));
-                          const streamingNow = loading && i === msgs.length - 1;
-                          return (
-                            <>
-                              <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={urlT} components={streamingNow ? mdStreaming : mdDone}>
-                                {body}
-                              </ReactMarkdown>
-                              {!streamingNow && !m.error && <ProjectWorkspace content={m.content} onRefine={(message) => setInput(message)} />}
-                              <div className="mt-1 flex flex-wrap gap-3 text-muted-foreground">
-                                <button onClick={() => copy(body, i)} className="flex items-center gap-1 text-xs hover:text-primary" aria-label="কপি">
-                                  {copied === i ? <Check size={15} /> : <Copy size={15} />}{copied === i ? "কপি হয়েছে" : "কপি"}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (speaking === i) { window.speechSynthesis?.cancel(); setSpeaking(null); }
-                                    else { speak(body); setSpeaking(i); }
-                                  }}
-                                  className="flex items-center gap-1 text-xs hover:text-primary"
-                                  aria-label="শুনুন"
-                                >
-                                  {speaking === i ? <><Square size={14} /> থামান</> : <><Volume2 size={15} /> শুনুন</>}
-                                </button>
-                                {!streamingNow && (
-                                  <>
-                                    {i === msgs.length - 1 && i > 0 && msgs[i - 1]?.role === "user" && !loading && (
-                                      <button onClick={() => { const prev = msgs[i - 1]!; send(prev.content, msgs.slice(0, i - 1), true); }} className="flex items-center gap-1 text-xs hover:text-primary" aria-label="আবার লিখুন">
-                                        <RotateCcw size={14} /> আবার লিখুন
-                                      </button>
-                                    )}
-                                    <button onClick={() => exportAnswer(body, "pdf")} className="text-xs hover:text-primary">PDF</button>
-                                    <button onClick={() => exportAnswer(body, "doc")} className="text-xs hover:text-primary">Word</button>
-                                    <button onClick={() => exportAnswer(body, "md")} className="text-xs hover:text-primary">Markdown</button>
-                                    <button onClick={() => toggleBookmark(body)} className="flex items-center gap-1 text-xs hover:text-primary">
-                                      {bookmarks.some((b) => b.content === body) ? <><BookmarkCheck size={14} /> সংরক্ষিত</> : <><BookmarkIcon size={14} /> সংরক্ষণ</>}
-                                    </button>
-                                    <button onClick={() => downloadShareCard(body)} className="flex items-center gap-1 text-xs hover:text-primary">
-                                      <Share2 size={14} /> শেয়ার কার্ড
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                              {!streamingNow && followups.length > 0 && i === msgs.length - 1 && (
-                                <div className="not-prose mt-3 flex flex-col gap-2">
-                                  {followups.map((f) => (
-                                    <button
-                                      key={f}
-                                      onClick={() => setInput(f)}
-                                      className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-left text-sm hover:border-primary/70 hover:bg-primary/10"
-                                    >
-                                      {f}
-                                    </button>
-                                  ))}
-                                </div>
+                    </>
+                  ) : (
+                    <>
+                      {i === msgs.length - 1 && flow && <WorkflowStepper stages={flow.stages} current={flow.current} />}
+                      {m.content ? (() => {
+                        const { body, followups } = splitFollowups(stripEmoji(m.content));
+                        const streamingNow = loading && i === msgs.length - 1;
+                        return (
+                        <>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={urlT} components={streamingNow ? mdStreaming : mdDone}>{body}</ReactMarkdown>
+                          {!streamingNow && !m.error && <ProjectWorkspace content={m.content} onRefine={(message) => setInput(message)} />}
+                          <div className="mt-1 flex flex-wrap gap-3 text-muted-foreground">
+                            <button onClick={() => copy(body, i)} className="flex items-center gap-1 text-xs hover:text-primary" aria-label="কপি">{copied === i ? <Check size={15} /> : <Copy size={15} />}{copied === i ? "কপি হয়েছে" : "কপি"}</button>
+                            <button onClick={() => { if (speaking === i) { window.speechSynthesis?.cancel(); setSpeaking(null); } else { speak(body); setSpeaking(i); } }} className="flex items-center gap-1 text-xs hover:text-primary" aria-label="শুনুন">{speaking === i ? <><Square size={14} /> থামান</> : <><Volume2 size={15} /> শুনুন</>}</button>
+                            {!streamingNow && <>
+                              {i === msgs.length - 1 && i > 0 && msgs[i - 1]?.role === "user" && !loading && (
+                                <button onClick={() => { const prev = msgs[i - 1]!; send(prev.content, msgs.slice(0, i - 1), true); }} className="flex items-center gap-1 text-xs hover:text-primary" aria-label="আবার লিখুন"><RotateCcw size={14} /> আবার লিখুন</button>
                               )}
-                            </>
-                          );
-                        })() : null}
-                      </>
-                    )}
-                  </div>
+                              <button onClick={() => exportAnswer(body, "pdf")} className="text-xs hover:text-primary">PDF</button>
+                              <button onClick={() => exportAnswer(body, "doc")} className="text-xs hover:text-primary">Word</button>
+                              <button onClick={() => exportAnswer(body, "md")} className="text-xs hover:text-primary">Markdown</button>
+                              <button onClick={() => toggleBookmark(body)} className="flex items-center gap-1 text-xs hover:text-primary">{bookmarks.some((b) => b.content === body) ? <><BookmarkCheck size={14} /> সংরক্ষিত</> : <><BookmarkIcon size={14} /> সংরক্ষণ</>}</button>
+                              <button onClick={() => downloadShareCard(body)} className="flex items-center gap-1 text-xs hover:text-primary"><Share2 size={14} /> শেয়ার কার্ড</button>
+                            </>}
+                          </div>
+                          {!streamingNow && followups.length > 0 && i === msgs.length - 1 && (
+                            <div className="not-prose mt-3 flex flex-col gap-2">
+                              {followups.map((f) => (
+                                <button key={f} onClick={() => setInput(f)} className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-left text-sm hover:border-primary/70 hover:bg-primary/10">{f}</button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                        );
+                      })() : (
+                      null
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={endRef} />
+          </div>
+        </div>
+        <div className="border-t border-border/60 px-4 py-3 sm:px-6 sm:py-4">
+          {/* সংযুক্ত ছবি ও ফাইলের প্রিভিউ */}
+          {(doc || docBusy || images.length > 0) && (
+            <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              {images.map((src, idx) => (
+                <div key={idx} className="relative inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1">
+                  <img src={src} alt={`ছবি ${idx + 1}`} className="h-6 w-6 rounded object-cover" />
+                  <span>ছবি {idx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+                    className="ml-1 text-destructive hover:font-bold"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
-              <div ref={endRef} />
+              {docBusy && <span>ফাইল পড়া হচ্ছে...</span>}
+              {doc && (
+                <span className="rounded-md border border-border bg-card px-2 py-1">
+                  {doc.name} ({doc.text.length} অক্ষর){" "}
+                  <button type="button" onClick={() => setDoc(null)} className="ml-1 text-destructive">
+                    ✕
+                  </button>
+                </span>
+              )}
             </div>
           )}
-        </div>
 
-        {viewMode === "playground" && (
-          <div className="fixed bottom-0 left-0 right-0 z-20 px-3 pb-3 sm:px-6 sm:pb-4 pointer-events-none md:left-72">
-            <div className="mx-auto w-full max-w-2xl pointer-events-auto">
-              <div className="rounded-2xl border border-border/80 bg-background/95 backdrop-blur-md p-2.5 shadow-lg shadow-black/5 focus-within:border-primary/70">
-                {(doc || docBusy || images.length > 0) && (
-                  <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground px-1">
-                    {images.map((src, idx) => (
-                      <div key={idx} className="relative inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1">
-                        <img src={src} alt={`ছবি ${idx + 1}`} className="h-6 w-6 rounded object-cover" />
-                        <span>ছবি {idx + 1}</span>
-                        <button
-                          type="button"
-                          onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
-                          className="ml-1 text-destructive hover:font-bold"
-                        >✕</button>
-                      </div>
-                    ))}
-                    {docBusy && <span>ফাইল প্রসেসিং চলছে...</span>}
-                    {doc && (
-                      <span className="rounded-md border border-border bg-card px-2 py-1">
-                        {doc.name} ({doc.text.length} অক্ষর){" "}
-                        <button type="button" onClick={() => setDoc(null)} className="ml-1 text-destructive">✕</button>
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files) pickImages(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <input
-                  ref={docRef}
-                  type="file"
-                  accept=".pdf,.docx,.txt,.md,.csv,.json,.html"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) pickDoc(f);
-                    e.target.value = "";
-                  }}
-                />
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      send();
-                    }
-                  }}
-                  rows={1}
-                  placeholder={listening ? "শুনছি…" : "Start typing a prompt"}
-                  className="w-full max-h-36 resize-none bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground/80 leading-relaxed"
-                />
-
-                <div className="mt-1 flex items-center justify-between pt-1 border-t border-border/40">
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <Popover open={plusOpen} onOpenChange={setPlusOpen}>
-                      <PopoverTrigger asChild>
-                        <button
-                          className="rounded-xl p-2 hover:bg-secondary hover:text-foreground"
-                          aria-label="Add attachment"
-                          title="Add attachment"
-                        >
-                          <Plus size={18} />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="top" align="start" className="w-56 p-1 text-xs">
-                        {[
-                          { icon: <Camera size={16} />, label: "সরাসরি ক্যামেরা", run: () => setCamOpen(true) },
-                          { icon: <ImagePlus size={16} />, label: "ছবি যুক্ত করুন", run: () => fileRef.current?.click() },
-                          { icon: <Paperclip size={16} />, label: "PDF / ফাইল", run: () => docRef.current?.click() },
-                          { icon: listening ? <MicOff size={16} /> : <Mic size={16} />, label: listening ? "ভয়েস থামান" : "ভয়েসে বলুন", run: toggleMic },
-                          { icon: <MonitorUp size={16} />, label: "স্ক্রিন দেখান", run: () => captureFrame("screen") },
-                        ].map((o) => (
-                          <button
-                            key={o.label}
-                            onClick={() => { setPlusOpen(false); o.run(); }}
-                            className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left hover:bg-secondary"
-                          >
-                            <span className="text-primary">{o.icon}</span>{o.label}
-                          </button>
-                        ))}
-                      </PopoverContent>
-                    </Popover>
-
-                    <button
-                      onClick={() => setToolSearch(!toolSearch)}
-                      className={`rounded-xl p-2 transition-colors ${
-                        toolSearch ? "bg-blue-500/10 text-blue-500" : "hover:bg-secondary hover:text-foreground"
-                      }`}
-                      title={toolSearch ? "Google Search Grounding (চালু)" : "Google Search Grounding (বন্ধ)"}
-                    >
-                      <Globe size={17} />
-                    </button>
-
-                    <button
-                      onClick={() => setToolCode(!toolCode)}
-                      className={`rounded-xl p-2 transition-colors ${
-                        toolCode ? "bg-emerald-500/10 text-emerald-500" : "hover:bg-secondary hover:text-foreground"
-                      }`}
-                      title={toolCode ? "Code Execution (চালু)" : "Code Execution (বন্ধ)"}
-                    >
-                      <Code2 size={17} />
-                    </button>
-
-                    <button
-                      onClick={() => setToolStructured(!toolStructured)}
-                      className={`rounded-xl p-2 transition-colors ${
-                        toolStructured ? "bg-purple-500/10 text-purple-500" : "hover:bg-secondary hover:text-foreground"
-                      }`}
-                      title="Structured outputs"
-                    >
-                      <Layers size={17} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={toggleMic}
-                      className={`rounded-xl p-2 transition-colors ${
-                        listening ? "animate-pulse bg-destructive text-destructive-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      }`}
-                      title="Voice input"
-                    >
-                      <Mic size={18} />
-                    </button>
-
-                    {loading ? (
-                      <button
-                        onClick={() => abortRef.current?.abort()}
-                        className="flex items-center gap-1.5 rounded-xl bg-secondary px-3.5 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary/80"
-                        title="থামান"
-                      >
-                        <Square size={14} className="fill-current" /> Stop
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => send()}
-                        disabled={(!input.trim() && !images.length && !doc) || docBusy}
-                        className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40 hover:opacity-95 shadow-xs"
-                        title="Run prompt"
-                      >
-                        <Play size={13} className="fill-current" /> Run
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      <aside
-        className={`${
-          runSettingsOpen ? "translate-x-0" : "translate-x-full"
-        } fixed inset-y-0 right-0 z-40 flex w-80 flex-col border-l border-border/70 bg-background shadow-2xl transition-transform duration-200 ease-in-out sm:w-96`}
-      >
-        <div className="flex h-14 items-center justify-between border-b border-border/60 px-4">
-          <span className="font-sans text-base font-semibold text-foreground">Run settings</span>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowCodeDialog(true)}
-              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
-            >
-              <Code2 size={14} /> Get code
-            </button>
-            <button
-              onClick={() => { setModel("gemini-2.0-flash"); setReasoningLevel("low"); setSystemPrompt(""); }}
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              title="Reset settings"
-            >
-              <RotateCcw size={15} />
-            </button>
-            <button
-              onClick={() => setRunSettingsOpen(false)}
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-          <div className="rounded-2xl border border-border/80 bg-card p-3.5 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-sm text-foreground">
-                {selectedModelObj?.label || (model ? model : "Gemini 2.0 Flash")}
-              </span>
-              <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Active</span>
-            </div>
-            <div className="text-[11px] font-mono text-muted-foreground">
-              {model || "gemini-2.0-flash"}
-            </div>
-            <div className="text-muted-foreground text-[11px] leading-relaxed">
-              Our fastest, most cost-effective 2.0 model for high-throughput execution.
-            </div>
-            <select
-              value={model}
-              onChange={(e) => {
-                setModel(e.target.value);
-                localStorage.setItem("ahsan-model", e.target.value);
-              }}
-              className="mt-2 w-full rounded-xl border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
-            >
-              <option value="">সিস্টেমের নির্বাচিত ডিফল্ট মডেল</option>
-              {ALL_AVAILABLE_MODELS.map((m) => <option key={`${m.provider}:${m.id}`} value={m.id}>{m.provider.toUpperCase()} · {m.label}</option>)}
-            </select>
-          </div>
-
-          <div className="rounded-2xl border border-border/80 bg-card p-3.5 space-y-2">
-            <div className="font-semibold text-xs text-foreground">System instructions</div>
-            <div className="text-[11px] text-muted-foreground">
-              Optional tone and style instructions for the model
-            </div>
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => {
-                setSystemPrompt(e.target.value);
-                localStorage.setItem("ahsan-system-prompt", e.target.value);
-              }}
-              rows={3}
-              placeholder="যেমন: আপনি একজন অভিজ্ঞ সফটওয়্যার ইঞ্জিনিয়ার ও শিক্ষক..."
-              className="w-full rounded-xl border border-border bg-background p-2 text-xs outline-none focus:border-primary resize-none placeholder:text-muted-foreground/70"
-            />
-            <div className="flex flex-wrap gap-1">
-              {MODES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    setMode(m.id === mode ? "" : m.id);
-                    localStorage.setItem("ahsan-mode", m.id === mode ? "" : m.id);
-                  }}
-                  className={`rounded-lg px-2 py-1 text-[11px] transition-colors ${
-                    mode === m.id ? "bg-primary text-primary-foreground font-medium" : "bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-border/80 bg-card p-3.5 space-y-2">
-            <div className="rounded-2xl border border-border/80 bg-card p-3.5 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="font-semibold text-xs text-foreground">Temperature</div>
-              <span className="font-mono text-xs font-semibold text-primary">{temperature.toFixed(2)}</span>
-            </div>
+          <div className="mx-auto flex w-full max-w-3xl items-end gap-0.5 rounded-2xl border border-border bg-background p-1 sm:gap-2 sm:p-2 focus-within:border-primary/60">
             <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.05"
-              value={temperature}
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
               onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                setTemperature(v);
-                localStorage.setItem("ahsan-temperature", String(v));
+                if (e.target.files) pickImages(e.target.files);
+                e.target.value = "";
               }}
-              className="w-full accent-primary"
             />
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>Precise (0.0)</span>
-              <span>Balanced (0.7)</span>
-              <span>Creative (2.0)</span>
-            </div>
-          </div>
-
-          <div className="font-semibold text-xs text-foreground">Thinking level</div>
-            <select
-              value={reasoningLevel}
-              onChange={(e) => {
-                setReasoningLevel(e.target.value);
-                localStorage.setItem("ahsan-reasoning-effort", e.target.value);
-              }}
-              className="w-full rounded-xl border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
-            >
-              <option value="low">Minimal (দ্রুততম রেসপন্স)</option>
-              <option value="medium">Medium (ভারসাম্যপূর্ণ চিন্তা)</option>
-              <option value="high">High (গভীর যুক্তি ও বিশ্লেষণ)</option>
-            </select>
-          </div>
-
-          <div className="rounded-2xl border border-border/80 bg-card p-3.5 space-y-3">
-            <div className="flex items-center justify-between font-semibold text-xs text-foreground">
-              <span>Tools</span>
-              <span className="text-[11px] text-muted-foreground font-normal">Active</span>
-            </div>
-
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-foreground">Structured outputs</span>
-                <input type="checkbox" checked={toolStructured} onChange={(e) => setToolStructured(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-foreground">Code execution</span>
-                <input type="checkbox" checked={toolCode} onChange={(e) => setToolCode(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-foreground">Function calling</span>
-                <input type="checkbox" checked={toolFn} onChange={(e) => setToolFn(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
-              </div>
-              <div className="flex items-center justify-between border-t border-border/60 pt-2.5">
-                <div className="flex items-center gap-1.5">
-                  <Globe size={14} className="text-blue-500" />
-                  <span className="font-medium text-foreground">Grounding with Google Search</span>
-                </div>
-                <input type="checkbox" checked={toolSearch} onChange={(e) => setToolSearch(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-foreground">Grounding with Google Maps</span>
-                <input type="checkbox" checked={toolMaps} onChange={(e) => setToolMaps(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-foreground">URL context</span>
-                <input type="checkbox" checked={toolUrl} onChange={(e) => setToolUrl(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
-              </div>
-            </div>
-          </div>
-
-          <details className="rounded-2xl border border-border/80 bg-card p-3.5 text-xs group">
-            <summary className="flex cursor-pointer items-center justify-between font-semibold text-foreground">
-              <span>Advanced settings</span>
-              <ChevronDown size={14} className="transition-transform group-open:rotate-180 text-muted-foreground" />
-            </summary>
-            <div className="mt-3 space-y-3 pt-2 border-t border-border/60">
-              <div>
-                <div className="flex justify-between text-[11px] text-muted-foreground mb-1">
-                  <span>Temperature</span>
-                  <span className="font-mono">{temperature}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  value={temperature}
-                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                  className="w-full accent-primary"
-                />
-              </div>
-              <div>
-                <div className="flex justify-between text-[11px] text-muted-foreground mb-1">
-                  <span>Top P</span>
-                  <span className="font-mono">{topP}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={topP}
-                  onChange={(e) => setTopP(parseFloat(e.target.value))}
-                  className="w-full accent-primary"
-                />
-              </div>
-            </div>
-          </details>
-        </div>
-      </aside>
-
-      {runSettingsOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-background/80 backdrop-blur-xs md:hidden"
-          onClick={() => setRunSettingsOpen(false)}
-        />
-      )}
-
-      {camOpen && (
-        <LiveCamera
-          onClose={() => setCamOpen(false)}
-          onCapture={(url) => {
-            setImages((prev) => (prev.length < 5 ? [...prev, url] : prev));
-            if (!input.trim()) setInput("ক্যামেরায় কী দেখা যাচ্ছে, বিশ্লেষণ করুন।");
-          }}
-        />
-      )}
-
-      {showCodeDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <span className="font-semibold text-sm text-foreground flex items-center gap-2">
-                <Code2 size={16} className="text-primary" /> API Request Code
-              </span>
-              <button onClick={() => setShowCodeDialog(false)} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary">
-                <X size={16} />
-              </button>
-            </div>
-            <pre className="mt-4 max-h-60 overflow-x-auto rounded-xl bg-secondary/50 p-3 font-mono text-xs text-foreground">
-              <code>{`curl -X POST https://al-ahsanbd.lovable.app/api/chat \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "messages": [{"role": "user", "content": "আপনার প্রশ্ন"}],
-    "model": "${model || "gemini-2.0-flash"}",
-    "reasoning_effort": "${reasoningLevel}"
-  }'`}</code>
-            </pre>
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`curl -X POST https://al-ahsanbd.lovable.app/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "Hello"}], "model": "${model || "gemini-2.0-flash"}"}'`);
-                  alert("কপি হয়েছে!");
-                }}
-                className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
-              >
-                কপি করুন
-              </button>
-            </div>
+            <input ref={docRef} type="file" accept=".pdf,.docx,.txt,.md,.csv,.json,.html" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) pickDoc(f); e.target.value = ""; }} />
+            <Popover open={plusOpen} onOpenChange={setPlusOpen}>
+              <PopoverTrigger asChild>
+                <button className={`shrink-0 rounded-xl p-2 sm:p-3 ${listening ? "animate-pulse bg-destructive text-destructive-foreground" : "text-primary hover:bg-primary/10"}`} aria-label="আরও অপশন"><Plus size={22} /></button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-56 p-1">
+                {[
+                  { icon: <Camera size={18} />, label: "সরাসরি ক্যামেরা", run: () => setCamOpen(true) },
+                  { icon: <ImagePlus size={18} />, label: "ছবি যুক্ত করুন", run: () => fileRef.current?.click() },
+                  { icon: <Paperclip size={18} />, label: "PDF / ফাইল", run: () => docRef.current?.click() },
+                  { icon: listening ? <MicOff size={18} /> : <Mic size={18} />, label: listening ? "ভয়েস থামান" : "ভয়েসে বলুন", run: toggleMic },
+                  { icon: <MonitorUp size={18} />, label: "স্ক্রিন দেখান", run: () => captureFrame("screen") },
+                ].map((o) => (
+                  <button key={o.label} onClick={() => { setPlusOpen(false); o.run(); }} className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm hover:bg-secondary">
+                    <span className="text-primary">{o.icon}</span>{o.label}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+            {camOpen && <LiveCamera onClose={() => setCamOpen(false)} onCapture={(url) => { setImages((prev) => (prev.length < 5 ? [...prev, url] : prev)); if (!input.trim()) setInput("ক্যামেরায় কী দেখা যাচ্ছে, বিশ্লেষণ করুন।"); }} />}
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              rows={1}
+              placeholder={listening ? "শুনছি…" : "আপনার প্রশ্ন লিখুন…"}
+              className="max-h-48 min-w-0 flex-1 resize-none bg-transparent px-2 py-3 outline-none placeholder:text-muted-foreground"
+            />
+            {loading ? (
+              <button onClick={() => abortRef.current?.abort()} className="shrink-0 rounded-xl bg-secondary p-2 sm:p-3" aria-label="থামান"><Square size={20} /></button>
+            ) : (
+              <button onClick={() => send()} disabled={(!input.trim() && !images.length && !doc) || docBusy} className="shrink-0 rounded-xl bg-primary p-2 sm:p-3 text-primary-foreground disabled:opacity-40" aria-label="পাঠান"><Send size={20} /></button>
+            )}
           </div>
         </div>
-      )}
+      </main>
     </div>
   );
 }
