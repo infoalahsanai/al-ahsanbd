@@ -128,7 +128,7 @@ async function exportAnswer(content: string, kind: "md" | "doc" | "pdf") {
     saveBlob(await Packer.toBlob(d), "al-ahsan-answer.docx");
   } catch { alert("Word ফাইল তৈরি করা যায়নি।"); }
 }
-import { LOVABLE_MODELS } from "@/lib/models";
+import { ALL_AVAILABLE_MODELS } from "@/lib/models";
 import { Settings as SettingsIcon, Camera, MonitorUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
@@ -671,7 +671,6 @@ function ChatPage() {
   const [temperature, setTemperature] = useState(0.2);
   const [topP, setTopP] = useState(0.95);
   const [showCodeDialog, setShowCodeDialog] = useState(false);
-  const [temperature, setTemperature] = useState(0.7);
   const [showSystemAccordion, setShowSystemAccordion] = useState(false);
 
   useEffect(() => {
@@ -681,7 +680,7 @@ function ChatPage() {
     if (savedTemp) setTemperature(parseFloat(savedTemp) || 0.7);
   }, []);
 
-  const selectedModelObj = LOVABLE_MODELS.find((m) => m.id === model);
+  const selectedModelObj = ALL_AVAILABLE_MODELS.find((m) => m.id === model);
   return (
     <div className="flex h-dvh w-full max-w-full overflow-hidden bg-background text-foreground">
       {/* 1. Left Sidebar (Google AI Studio Navigation) */}
@@ -1423,12 +1422,8 @@ function ChatPage() {
               }}
               className="mt-2 w-full rounded-xl border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
             >
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (Default, Fast & Multimodal)</option>
-              <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning & Analysis)</option>
-              <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite (Ultra-fast)</option>
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Balanced & Efficient)</option>
-              <option value="gpt-4o">OpenAI GPT-4o</option>
-              <option value="gpt-5.5">OpenAI GPT-5.5</option>
+              <option value="">সিস্টেমের নির্বাচিত ডিফল্ট মডেল</option>
+              {ALL_AVAILABLE_MODELS.map((m) => <option key={`${m.provider}:${m.id}`} value={m.id}>{m.provider.toUpperCase()} · {m.label}</option>)}
             </select>
           </div>
 
