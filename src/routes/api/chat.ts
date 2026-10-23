@@ -31,6 +31,10 @@ const Body = z.object({
     .max(60),
   model: z.string().max(80).optional(),
   mode: z.string().max(50).optional(),
+  systemInstruction: z.string().max(20000).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  thinkingBudget: z.number().min(0).max(65536).optional(),
+  grounding: z.boolean().optional(),
 });
 
 const ENGINEER_PROMPT = `## শীর্ষ সফটওয়্যার আর্কিটেক্ট ইঞ্জিন (Principal Systems Architect)
@@ -145,11 +149,11 @@ const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export const GOOGLE_CHAINS: Record<TaskKind, string[]> = {
-  quick: ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest", "gemini-3.1-flash-lite", "gemini-3.8-flash"],
-  general: ["gemini-2.0-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash-lite", "gemini-3.8-flash", "gemini-3-flash-preview"],
-  code: ["gemini-2.0-flash", "gemini-1.5-pro-latest", "gemini-3.8-flash", "gemini-3-flash-preview"],
+  quick: ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"],
+  general: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro"],
+  code: ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite", "gemini-1.5-flash"],
   // ইঞ্জিনিয়ার মোড: স্থিতিশীল প্রো ও দ্রুত ফ্ল্যাশ চেইন
-  engineer: ["gemini-2.0-flash", "gemini-1.5-pro-latest", "gemini-3.1-pro-preview", "gemini-3.8-flash"],
+  engineer: ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"],
 };
 
 const GATEWAY_CHAINS: Record<TaskKind, string[]> = {
@@ -349,6 +353,9 @@ async function handleChat(request: Request): Promise<Response> {
   const openaiKey = clean(keys?.openai_key) || clean(process.env["OPENAI_API_KEY"]);
   const gatewayKey = process.env["LOVABLE_API_KEY"] || "";
 
+  const rawRequestedModel = (parsed.data.model || "").trim();
+  const cleanRequestedGoogle = rawRequestedModel.replace(/^google\//, "");
+  const isRequestedGoogle = cleanRequestedGoogle.startsWith("gemini-");
   const userModel = parsed.data.model && LOVABLE_MODELS.some((m) => m.id === parsed.data.model) ? parsed.data.model : "";
   const adminProvider = String(s?.provider ?? "google");
   const adminModel = String(s?.model ?? "").trim();
@@ -358,6 +365,10 @@ async function handleChat(request: Request): Promise<Response> {
     if (!attempts.some((x) => x.url === a.url && x.key === a.key && x.model === a.model)) attempts.push(a);
   };
   const googleChain = [...GOOGLE_CHAINS[kind]];
+  if (isRequestedGoogle && cleanRequestedGoogle) {
+    // ব্যবহারকারীর নির্বাচিত গুগল মডেল (Google AI Studio স্টাইল) চেইনের শীর্ষে অগ্রাধিকার পাবে
+    googleChain.unshift(cleanRequestedGoogle);
+  }
   if (adminProvider === "google" && adminModel) {
     // [#50] অ্যাডমিন যে মডেলই বেছে বা টাইপ করে দিন না কেন, তা গুগল চেইনের শীর্ষে যাবে
     googleChain.unshift(adminModel);
@@ -403,7 +414,7 @@ async function handleChat(request: Request): Promise<Response> {
 
   const lastImgs = imgsOf(msgsIn.length - 1);
   const wantImg = !lastImgs.length && wantsImage(lastMsgText) && !!gatewayKey;
-  const shouldSearch = !isEngineer && !isSiteReq && !isCode && !hasImage && needsSearch(lastMsgText);
+  const shouldSearch = parsed.data.grounding !== false && !isEngineer && !isSiteReq && !isCode && !hasImage && needsSearch(lastMsgText);
   const cacheKey = kind === "quick" && !hasImage && !shouldSearch && msgsIn.length === 1 ? `${uid}|${lastMsgText.trim().toLowerCase()}` : "";
 
   // ---- লাইভ স্ট্রিম [#5][#6][#47] ----
@@ -497,6 +508,9 @@ async function handleChat(request: Request): Promise<Response> {
         system += `\n\n=== বর্তমান সময় (সার্ভার ঘড়ি, নির্ভুল) ===\nবাংলাদেশ সময়: ${bd}${hijri ? `\nহিজরি তারিখ (উম্মুল কুরা হিসাব, স্থানীয় চাঁদ দেখার সাথে ১ দিন পার্থক্য হতে পারে): ${hijri}` : ""}\nISO: ${now.toISOString()}`;
 
         const [mem, fatwaContext] = await Promise.all([memTask, fatwaTask]);
+        if (parsed.data.systemInstruction && parsed.data.systemInstruction.trim()) {
+          system = `## ব্যবহারকারীর কাস্টম সিস্টেম নির্দেশাবলী (System Instructions)\n${parsed.data.systemInstruction.trim()}\n\n` + system;
+        }
         if (fatwaContext) system += fatwaContext;
         if (mem.items.length) system += `\n\n=== ব্যবহারকারী সম্পর্কে সংরক্ষিত তথ্য (স্মৃতি) ===\n${mem.items.map((m) => "- " + m.text).join("\n")}`;
         if (mem.recent.length) system += `\n\n=== পূর্ববর্তী প্রাসঙ্গিক প্রশ্ন ===\n${[...mem.recent].reverse().map((r) => "- " + String(r.content).slice(0, 200).replace(/\s+/g, " ")).join("\n")}`;
@@ -540,9 +554,9 @@ async function handleChat(request: Request): Promise<Response> {
 
         const basePayload: Record<string, unknown> = {
           stream: true,
-          temperature: isSiteReq ? 0.4 : 0.2, // [#8]
+          temperature: parsed.data.temperature !== undefined ? parsed.data.temperature : (isSiteReq ? 0.4 : 0.2), // [#8]
           max_tokens: tokenBudget(kind, isSiteReq), // [#44]
-          reasoning_effort: adminReasoning,
+          reasoning_effort: (parsed.data.thinkingBudget && parsed.data.thinkingBudget > 0 ? "high" : adminReasoning),
           messages: [{ role: "system", content: system }, ...msgs],
         };
 
