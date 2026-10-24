@@ -716,6 +716,14 @@ async function tryAttempt(a: Attempt, base: Record<string, unknown>, kind: TaskK
   } else if (a.url === OPENAI_URL || a.url === GATEWAY_URL) {
     const openaiEffortMap: Record<string, string> = { low: "low", medium: "medium", high: "medium", xhigh: "high" };
     payload["reasoning_effort"] = openaiEffortMap[effort] || "low";
+  } else if (a.url === OPENROUTER_URL) {
+    delete payload["reasoning_effort"];
+    payload["reasoning"] = { effort: effort === "xhigh" ? "high" : effort };
+  } else if (a.url === GROQ_URL) {
+    delete payload["reasoning_effort"];
+    if (/qwen|r1|deepseek|reasoning/i.test(a.model)) {
+      payload["reasoning_format"] = "parsed";
+    }
   }
   if (a.url === OPENAI_URL && /^gpt-5|^o\d/.test(a.model)) delete payload["temperature"];
   try {

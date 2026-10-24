@@ -143,13 +143,16 @@ function AdminPage() {
           </select>
           <label className="mt-2 block text-xs text-muted-foreground">অথবা নিজে মডেলের নাম লিখুন</label>
           <input value={s.model} onChange={(e) => set("model", e.target.value)} className={`${input} mt-1 text-sm`} />
-          <label className="mt-4 block text-sm text-muted-foreground">চিন্তার গভীরতা (বিল্ট-ইন GPT-6 Astra)</label>
+          <label className="mt-4 block text-sm text-muted-foreground">চিন্তার গভীরতা (Google Gemini, Groq, OpenRouter, OpenAI ও বিল্ট-ইন)</label>
           <select value={s.reasoning_effort} onChange={(e) => set("reasoning_effort", e.target.value)} className={`${input} mt-1`}>
-            <option value="low">কম — দ্রুত উত্তর</option>
-            <option value="medium">মাঝারি — ভারসাম্য</option>
-            <option value="high">বেশি — গভীর চিন্তা</option>
-            <option value="xhigh">সর্বোচ্চ — সবচেয়ে বুদ্ধিমান (ধীর)</option>
+            <option value="low">কম — দ্রুত উত্তর (Fast, minimal reasoning)</option>
+            <option value="medium">মাঝারি — ভারসাম্যপূর্ণ চিন্তা (Balanced reasoning)</option>
+            <option value="high">বেশি — গভীর বিশ্লেষণ ও যৌক্তিক চিন্তা (Deep reasoning)</option>
+            <option value="xhigh">সর্বোচ্চ — পূর্ণাঙ্গ স্থাপত্য ও যাচাইকৃত চিন্তা (Maximum reasoning)</option>
           </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            এই সেটিংসটি Google Gemini (thinking চেইন), Groq (reasoning format ও গভীর বিশ্লেষণ), OpenRouter (reasoning tokens) এবং বিল্ট-ইন মডেলগুলো জটিলতা অনুসারে চিন্তা করে উত্তর দেবে।
+          </p>
         </section>
 
         <section className={card}>
@@ -334,6 +337,35 @@ function FatwaBank() {
 type PoolProvider = "google" | "openai" | "groq" | "openrouter" | "weather" | "jsonplaceholder" | "custom";
 type PoolKey = { name: string; provider: PoolProvider; key: string; base_url?: string; model?: string; active: boolean };
 
+
+function SignalBox({ message }: { message: string }) {
+  const isSuccess = message.startsWith("সফল:");
+  const isPending = message.startsWith("পরীক্ষা চলছে") || message.startsWith("আনা হচ্ছে");
+  return (
+    <div
+      role="status"
+      className={`mt-2 flex items-center gap-2.5 rounded-lg border px-3 py-2 text-xs font-mono transition-all ${
+        isSuccess
+          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+          : isPending
+          ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+          : "border-destructive/40 bg-destructive/10 text-destructive"
+      }`}
+    >
+      <span
+        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+          isSuccess
+            ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+            : isPending
+            ? "animate-pulse bg-amber-500"
+            : "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+        }`}
+      />
+      <span className="font-sans flex-1 break-words">{message}</span>
+    </div>
+  );
+}
+
 function KeyPool({ pool, setPool, show }: { pool: PoolKey[]; setPool: (p: PoolKey[]) => void; show: boolean }) {
   const [testing, setTesting] = useState<number | null>(null);
   const [testResults, setTestResults] = useState<Record<number, string>>({});
@@ -477,29 +509,7 @@ function KeyPool({ pool, setPool, show }: { pool: PoolKey[]; setPool: (p: PoolKe
             </div>
 
             {/* লাইভ সার্ভার সিগন্যাল বাক্স */}
-            {testResults[i] && (
-              <div
-                role="status"
-                className={`mt-2 flex items-center gap-2.5 rounded-lg border px-3 py-2 text-xs font-mono transition-all ${
-                  testResults[i].startsWith("সফল:")
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                    : testResults[i].startsWith("পরীক্ষা চলছে") || testResults[i].startsWith("আনা হচ্ছে")
-                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                    : "border-destructive/40 bg-destructive/10 text-destructive"
-                }`}
-              >
-                <span
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                    testResults[i].startsWith("সফল:")
-                      ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                      : testResults[i].startsWith("পরীক্ষা চলছে") || testResults[i].startsWith("আনা হচ্ছে")
-                      ? "animate-pulse bg-amber-500"
-                      : "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-                  }`}
-                />
-                <span className="font-sans flex-1 break-words">{testResults[i]}</span>
-              </div>
-            )}
+            {testResults[i] && <SignalBox message={testResults[i]} />}
           </div>
         ))}
       </div>
